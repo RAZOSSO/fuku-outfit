@@ -56,8 +56,13 @@ npm run dev
 **Authentication → Users → Invite user** でメールアドレスを入れます。
 届いたメールのリンクを開くとパスワード設定画面になり、以降はそのパスワードでログインします。
 
+## 公開（GitHub Pages）
+`main` に push すると GitHub Actions がビルドして https://razosso.github.io/fuku-outfit/ に公開します。
+Supabase の URL と anon key は GitHub の Settings → Secrets and variables → Actions に
+`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` として登録してあります。
+
 ## スマホのホーム画面に追加する
-アプリを公開（Vercel / Netlify など）したあと、
+https://razosso.github.io/fuku-outfit/ を開いて、
 - iPhone：Safari で開く → 共有 → 「ホーム画面に追加」
 - Android：Chrome で開く → メニュー → 「アプリをインストール」
 

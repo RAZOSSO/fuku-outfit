@@ -1,4 +1,6 @@
+import type { User } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
+import { codeOf, formatCode } from '../lib/account'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
 
@@ -6,7 +8,9 @@ const DEFAULT: Profile = { place_name: '東京', latitude: 35.6895, longitude: 1
 
 type Place = { name: string; admin1?: string; latitude: number; longitude: number }
 
-export default function Settings() {
+export default function Settings({ user }: { user: User }) {
+  const code = codeOf(user)
+  const [showCode, setShowCode] = useState(false)
   const [profile, setProfile] = useState<Profile>(DEFAULT)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Place[]>([])
@@ -32,10 +36,9 @@ export default function Settings() {
   }
 
   async function save() {
-    const { data: auth } = await supabase.auth.getUser()
     const { error } = await supabase
       .from('profiles')
-      .upsert({ ...profile, user_id: auth.user!.id, updated_at: new Date().toISOString() })
+      .upsert({ ...profile, user_id: user.id, updated_at: new Date().toISOString() })
     setMessage(error ? '保存できませんでした: ' + error.message : '保存しました')
   }
 
@@ -79,7 +82,32 @@ export default function Settings() {
       <button className="primary" onClick={save}>保存</button>
       {message && <p className="notice">{message}</p>}
 
-      <button className="link" onClick={() => supabase.auth.signOut()}>ログアウト</button>
+      {code && (
+        <div className="card stack">
+          <div><strong>引き継ぎコード</strong></div>
+          <p className="muted small">
+            機種変更やアプリを消したときに、このコードでデータを戻せます。スクショやメモで保管してください。
+            人に教えると、あなたのクローゼットを見られてしまうので注意してください。
+          </p>
+          {showCode ? (
+            <>
+              <div className="code-display">{formatCode(code)}</div>
+              <button onClick={() => navigator.clipboard?.writeText(formatCode(code)).then(() => setMessage('コピーしました'))}>コピー</button>
+            </>
+          ) : (
+            <button onClick={() => setShowCode(true)}>コードを表示</button>
+          )}
+        </div>
+      )}
+
+      <button
+        className="link"
+        onClick={() => {
+          if (confirm('この端末からログアウトします。戻るには引き継ぎコードが必要です。よろしいですか？')) supabase.auth.signOut()
+        }}
+      >
+        この端末からログアウト
+      </button>
     </div>
   )
 }

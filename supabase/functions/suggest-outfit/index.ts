@@ -1,9 +1,17 @@
-// 今日の天気と手持ちの服から、服装を1セット提案して outfits に保存する
+// 今日の天気と手持ちの服から、服装を1セット提案して outfits に保存する。
+// 呼ばれ方は2つ:
+//  1. アプリから（ログイン中の利用者のトークン付き）… その人の提案を作って返す
+//  2. pg_cron から5分おきに（x-cron-secret ヘッダ付き）… 通知時刻になった人の提案を作ってプッシュ通知する
+// ※ 2 のために「Verify JWT」はオフにする（1 のログイン確認はこのコードの中で行う）
 import Anthropic from "npm:@anthropic-ai/sdk@0.133.0";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
+
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 const MODEL = "claude-opus-5-5";
 const DAILY_LIMIT = 10; // 1人1日あたりの提案回数の上限（API費用の上限を決める）
+const NOTIFY_WINDOW_MIN = 180; // 通知時刻を過ぎてから何分以内なら送るか（夜に登録した人へ深夜に送らないため）
 const anthropic = new Anthropic(); // ANTHROPIC_API_KEY は Secrets に登録する
 
 const corsHeaders = {
@@ -30,6 +38,7 @@ const SYSTEM = `あなたは天気と手持ちの服から、その日の服装�
 - 降水確率が高い日は rain_ok の服と靴を優先する。
 - 最近着た服、特にトップスやワンピースは数日あけるようにする。
 - 色の組み合わせとフォーマル度をそろえる。本人の好み・予定のメモがあれば最優先する。
+- 「過去の評価」から、本人の好みや暑がり・寒がりの傾向を読み取って反映する。👎 の理由があれば同じ失敗を繰り返さない。
 - 「今日すでに出した案」がある場合は、それとはっきり違う組み合わせにする。
 
 返す内容:
@@ -62,6 +71,8 @@ type Item = {
   id: string; name: string; category: string; color: string; material: string;
   warmth: number; rain_ok: boolean; formality: number; notes: string;
 };
+type Weather = Awaited<ReturnType<typeof fetchWeather>>;
+type Outfit = { id: string; date: string; item_ids: string[]; comment: string; tips: string; weather: Weather };
 
 async function fetchWeather(p: Profile, date: string) {
   const params = new URLSearchParams({
@@ -93,14 +104,14 @@ async function fetchWeather(p: Profile, date: string) {
     place: p.place_name,
     date,
     summary: WEATHER_NAMES[d.weather_code[0]] ?? "不明",
-    max: d.temperature_2m_max[0],
-    min: d.temperature_2m_min[0],
-    feels_max: d.apparent_temperature_max[0],
-    feels_min: d.apparent_temperature_min[0],
-    precip_prob: d.precipitation_probability_max[0],
-    precip_sum: d.precipitation_sum[0],
-    wind_max: d.wind_speed_10m_max[0],
-    uv_max: d.uv_index_max[0],
+    max: d.temperature_2m_max[0] as number,
+    min: d.temperature_2m_min[0] as number,
+    feels_max: d.apparent_temperature_max[0] as number,
+    feels_min: d.apparent_temperature_min[0] as number,
+    precip_prob: d.precipitation_probability_max[0] as number,
+    precip_sum: d.precipitation_sum[0] as number,
+    wind_max: d.wind_speed_10m_max[0] as number,
+    uv_max: d.uv_index_max[0] as number,
     hourly,
   };
 }
@@ -133,25 +144,20 @@ async function askClaude(prompt: string): Promise<{ item_ids: string[]; comment:
   return JSON.parse(text.text);
 }
 
-async function handle(req: Request): Promise<Response> {
-  // リクエストしたユーザーの権限で動くクライアント（自分のデータしか読み書きできない）
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
-  });
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new HttpError(401, "ログインが必要です");
-
-  const body = await req.json().catch(() => ({}));
-  const date: string = /^\d{4}-\d{2}-\d{2}$/.test(body.date ?? "") ? body.date : new Date().toISOString().slice(0, 10);
-
-  const { count } = await supabase.from("outfits").select("id", { count: "exact", head: true }).eq("date", date);
+/** 1人分の提案を作って保存する（supabase は利用者本人のクライアントでも管理者クライアントでもよい） */
+async function generateOutfit(supabase: SupabaseClient, userId: string, date: string): Promise<Outfit> {
+  const { count } = await supabase.from("outfits").select("id", { count: "exact", head: true })
+    .eq("user_id", userId).eq("date", date);
   if ((count ?? 0) >= DAILY_LIMIT) throw new HttpError(429, `提案は1日${DAILY_LIMIT}回までです`);
 
-  const since = new Date(Date.parse(date) - 14 * 86400_000).toISOString().slice(0, 10);
-  const [profileRes, itemsRes, recentRes] = await Promise.all([
-    supabase.from("profiles").select("place_name, latitude, longitude, style_notes").maybeSingle(),
-    supabase.from("items").select("id, name, category, color, material, warmth, rain_ok, formality, notes"),
-    supabase.from("outfits").select("date, item_ids, worn").gte("date", since).order("date", { ascending: false }),
+  const daysAgo = (n: number) => new Date(Date.parse(date) - n * 86400_000).toISOString().slice(0, 10);
+  const [profileRes, itemsRes, recentRes, ratedRes] = await Promise.all([
+    supabase.from("profiles").select("place_name, latitude, longitude, style_notes").eq("user_id", userId).maybeSingle(),
+    supabase.from("items").select("id, name, category, color, material, warmth, rain_ok, formality, notes").eq("user_id", userId),
+    supabase.from("outfits").select("date, item_ids, worn").eq("user_id", userId).gte("date", daysAgo(14))
+      .order("date", { ascending: false }),
+    supabase.from("outfits").select("date, item_ids, rating, feedback, weather").eq("user_id", userId)
+      .not("rating", "is", null).gte("date", daysAgo(60)).order("date", { ascending: false }).limit(30),
   ]);
   const profile: Profile = profileRes.data ?? { place_name: "東京", latitude: 35.6895, longitude: 139.6917, style_notes: "" };
   const items = (itemsRes.data ?? []) as Item[];
@@ -162,6 +168,11 @@ async function handle(req: Request): Promise<Response> {
   const recent = recentRes.data ?? [];
   const wornLines = recent.filter((o) => o.worn && o.date !== date).map((o) => `- ${o.date}: ${describe(o.item_ids)}`);
   const todayLines = recent.filter((o) => o.date === date).map((o) => `- ${describe(o.item_ids)}`);
+  const ratedLines = (ratedRes.data ?? []).map((o) => {
+    const w = o.weather as Weather;
+    const mark = o.rating === 1 ? "👍" : `👎${o.feedback ? `（${o.feedback}）` : ""}`;
+    return `- ${mark} ${o.date} 最高${Math.round(w.max)}°/最低${Math.round(w.min)}°・雨${w.precip_prob}%: ${describe(o.item_ids)}`;
+  });
 
   const weather = await fetchWeather(profile, date);
 
@@ -178,6 +189,9 @@ ${items.map((i) => JSON.stringify(i)).join("\n")}
 # 最近実際に着た服
 ${wornLines.join("\n") || "（記録なし）"}
 
+# 過去の評価
+${ratedLines.join("\n") || "（まだなし）"}
+
 # 今日すでに出した案
 ${todayLines.join("\n") || "（なし）"}`;
 
@@ -187,11 +201,112 @@ ${todayLines.join("\n") || "（なし）"}`;
 
   const { data: outfit, error } = await supabase
     .from("outfits")
-    .insert({ date, item_ids: itemIds, comment: answer.comment, tips: answer.tips, weather })
+    .insert({ user_id: userId, date, item_ids: itemIds, comment: answer.comment, tips: answer.tips, weather })
     .select()
     .single();
   if (error) throw error;
-  return json(outfit);
+  return outfit as Outfit;
+}
+
+// ---- 毎朝の通知 ----
+
+type Subscription = {
+  endpoint: string; user_id: string; p256dh: string; auth: string;
+  notify_time: string; timezone: string; last_sent_date: string | null;
+};
+
+/** そのタイムゾーンでの今日の日付と、0時からの経過分 */
+function localNow(timeZone: string) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date()).map((p) => [p.type, p.value]),
+  );
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+}
+
+async function runMorning() {
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  webpush.setVapidDetails(
+    Deno.env.get("VAPID_SUBJECT") ?? "https://razosso.github.io/fuku-outfit/",
+    Deno.env.get("VAPID_PUBLIC_KEY")!,
+    Deno.env.get("VAPID_PRIVATE_KEY")!,
+  );
+
+  const { data: subs, error } = await admin.from("push_subscriptions").select("*");
+  if (error) throw error;
+
+  // 通知時刻になった端末を、利用者ごとにまとめる
+  const due = new Map<string, { date: string; subs: Subscription[] }>();
+  for (const s of (subs ?? []) as Subscription[]) {
+    const now = localNow(s.timezone);
+    const [h, m] = s.notify_time.split(":").map(Number);
+    const passed = now.minutes - (h * 60 + m);
+    if (s.last_sent_date === now.date || passed < 0 || passed > NOTIFY_WINDOW_MIN) continue;
+    const entry = due.get(s.user_id) ?? { date: now.date, subs: [] };
+    entry.subs.push(s);
+    due.set(s.user_id, entry);
+  }
+
+  await Promise.all([...due].map(async ([userId, { date, subs }]) => {
+    // 先に送信済みにして、AI が失敗しても5分おきに何度もやり直さない（費用を増やさない）
+    await admin.from("push_subscriptions").update({ last_sent_date: date }).in("endpoint", subs.map((s) => s.endpoint));
+
+    let payload = { title: "きょうの服", body: "今日の服装を見てみましょう" };
+    try {
+      const { data: existing } = await admin.from("outfits").select("*").eq("user_id", userId).eq("date", date)
+        .order("created_at", { ascending: false }).limit(1);
+      const outfit = (existing?.[0] as Outfit | undefined) ?? await generateOutfit(admin, userId, date);
+      const { data: items } = await admin.from("items").select("id, name").in("id", outfit.item_ids);
+      const w = outfit.weather;
+      payload = {
+        title: `きょうの服　${w.summary} ${Math.round(w.max)}° / ${Math.round(w.min)}°`,
+        body: [(items ?? []).map((i) => i.name).join("・"), outfit.tips].filter(Boolean).join("\n"),
+      };
+    } catch (e) {
+      console.error("morning outfit failed", userId, e);
+    }
+
+    await Promise.all(subs.map(async (s) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          JSON.stringify(payload),
+          { TTL: 3 * 3600 },
+        );
+      } catch (e) {
+        const status = (e as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint); // 通知をやめた端末
+        } else {
+          console.error("push failed", status, e);
+        }
+      }
+    }));
+  }));
+}
+
+// ---- 入口 ----
+
+async function handle(req: Request): Promise<Response> {
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  if (cronSecret && req.headers.get("x-cron-secret") === cronSecret) {
+    EdgeRuntime.waitUntil(runMorning().catch((e) => console.error("runMorning failed", e)));
+    return json({ ok: true }, 202);
+  }
+
+  // リクエストしたユーザーの権限で動くクライアント（自分のデータしか読み書きできない）
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+  });
+  // Verify JWT をオフにしているので、トークンが本物かどうかをここで確かめる
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { data: auth } = await supabase.auth.getUser(token);
+  if (!auth.user) throw new HttpError(401, "ログインが必要です");
+
+  const body = await req.json().catch(() => ({}));
+  const date: string = /^\d{4}-\d{2}-\d{2}$/.test(body.date ?? "") ? body.date : new Date().toISOString().slice(0, 10);
+  return json(await generateOutfit(supabase, auth.user.id, date));
 }
 
 Deno.serve(async (req) => {

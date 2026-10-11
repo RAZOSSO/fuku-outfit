@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
+import PushSettings from '../components/PushSettings'
 import { codeOf, formatCode } from '../lib/account'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
@@ -81,6 +82,8 @@ export default function Settings({ user }: { user: User }) {
 
       <button className="primary" onClick={save}>保存</button>
       {message && <p className="notice">{message}</p>}
+
+      <PushSettings />
 
       {code && (
         <div className="card stack">

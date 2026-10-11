@@ -140,3 +140,10 @@ label.check input { width: auto; margin: 0; }
   font-size: 1.3rem; letter-spacing: 0.06em; text-align: center;
   padding: 12px; border: 1px dashed var(--border); border-radius: 10px; user-select: all;
 }
+
+.rating .row button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.chips.wrap { flex-wrap: wrap; overflow-x: visible; }
+.outfit-grid.small { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.outfit-grid.small img, .outfit-grid.small .noimg { border-radius: 8px; font-size: 0.65rem; }
+.month { font-size: 1rem; margin: 8px 0 0; color: var(--muted); }
+.time-input { width: auto; }

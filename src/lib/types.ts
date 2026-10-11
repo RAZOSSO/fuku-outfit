@@ -47,6 +47,8 @@ export type Outfit = {
   tips: string
   weather: Weather
   worn: boolean
+  rating: -1 | 1 | null
+  feedback: string
   created_at: string
 }
 

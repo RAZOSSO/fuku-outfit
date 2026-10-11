@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { itemsOf, OutfitItems, Rating } from '../components/Outfit'
 import { callFunction, signedUrls, supabase, today } from '../lib/supabase'
-import { CATEGORIES, type Item, type Outfit, type Weather } from '../lib/types'
-
-const ORDER = ['outer', 'tops', 'onepiece', 'bottoms', 'shoes', 'accessory']
+import type { Item, Outfit, Weather } from '../lib/types'
 
 export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
   const [outfit, setOutfit] = useState<Outfit | null>(null)
@@ -58,11 +57,7 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
       </div>
     )
 
-  const byId = new Map(items.map((i) => [i.id, i]))
-  const chosen = (outfit?.item_ids ?? [])
-    .map((id) => byId.get(id))
-    .filter((i): i is Item => !!i)
-    .sort((a, b) => ORDER.indexOf(a.category) - ORDER.indexOf(b.category))
+  const chosen = outfit ? itemsOf(outfit, new Map(items.map((i) => [i.id, i]))) : []
 
   return (
     <div className="stack">
@@ -77,16 +72,10 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
       ) : (
         outfit && (
           <div className="card stack">
-            <div className="outfit-grid">
-              {chosen.map((i) => (
-                <figure key={i.id}>
-                  {i.photo_path && urls[i.photo_path] ? <img src={urls[i.photo_path]} alt={i.name} /> : <div className="noimg">{CATEGORIES[i.category]}</div>}
-                  <figcaption>{i.name}</figcaption>
-                </figure>
-              ))}
-            </div>
+            <OutfitItems items={chosen} urls={urls} />
             <p>{outfit.comment}</p>
             {outfit.tips && <p className="tips">💡 {outfit.tips}</p>}
+            <Rating outfit={outfit} onChange={setOutfit} />
           </div>
         )
       )}

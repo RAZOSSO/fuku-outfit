@@ -6,9 +6,15 @@ export const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.m
 export async function callFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body })
   if (error) {
-    const res = (error as { context?: Response }).context
-    const message = res ? await res.json().then((j) => j.error).catch(() => null) : null
-    throw new Error(message ?? 'エラーが発生しました')
+    // 関数がエラーを返したときだけ context が Response になる。通信自体の失敗では Error などが入る
+    const ctx = (error as { context?: unknown }).context
+    if (ctx instanceof Response) {
+      const message = await ctx.json().then((j) => j.error).catch(() => null)
+      throw new Error(message ?? `エラーが発生しました（${ctx.status}）`)
+    }
+    if (error.name === 'FunctionsFetchError')
+      throw new Error('サーバーから返事がありませんでした。時間がかかりすぎたか、通信が切れた可能性があります。もう一度試してください')
+    throw new Error(error.message)
   }
   return data as T
 }

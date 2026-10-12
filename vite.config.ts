@@ -18,8 +18,8 @@ export default defineConfig({
         description: '今日の天気と手持ちの服から、服装を1つ提案します',
         lang: 'ja',
         display: 'standalone',
-        background_color: '#f6f3ee',
-        theme_color: '#f6f3ee',
+        background_color: '#f7f2e9',
+        theme_color: '#f7f2e9',
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },

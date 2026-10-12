@@ -1,38 +1,58 @@
+/* テーマ：象牙色の紙に金箔。暗い画面では漆黒に金 */
 :root {
-  --bg: #f6f3ee;
-  --card: #ffffff;
-  --text: #2b2b2b;
-  --muted: #7a756d;
-  --accent: #3d5a80;
-  --accent-text: #ffffff;
-  --border: #e4ded4;
-  --warm: #d9534f;
-  --cool: #3d7ab8;
+  --bg: #f7f2e9;
+  --bg-deep: #efe6d6;
+  --card: #fffcf6;
+  --text: #221c15;
+  --muted: #8b7f6c;
+  --gold: #b08a3e;
+  --gold-soft: #e6d3a3;
+  --border: #e7dcc6;
+  --foil: linear-gradient(115deg, #a87c2c 0%, #d9b866 22%, #f6e7b4 38%, #c99d45 55%, #e8cf87 75%, #a87c2c 100%);
+  --foil-text: #2a1f0e;
+  /* 文字用の金箔。明るい背景でも読めるよう濃いめにする */
+  --foil-ink: linear-gradient(115deg, #7d5716 0%, #b98d38 30%, #e0c27a 45%, #a67a26 60%, #6f4c12 100%);
+  --shadow: 0 1px 2px rgba(74, 56, 22, 0.06), 0 8px 24px -12px rgba(74, 56, 22, 0.25);
+  --warm: #b4563f;
+  --cool: #3f6c9a;
+  --serif: 'Cormorant Garamond', 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  --mincho: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  --script: 'Great Vibes', 'Snell Roundhand', 'Segoe Script', cursive;
   color-scheme: light dark;
   font-family: system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--text);
   background: var(--bg);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1b1d21;
-    --card: #26292e;
-    --text: #ececec;
-    --muted: #a09b93;
-    --accent: #8fb3e0;
-    --accent-text: #14181d;
-    --border: #383c42;
-    --warm: #ef8a86;
-    --cool: #86b6ea;
+    --bg: #0e0c0a;
+    --bg-deep: #070605;
+    --card: #191512;
+    --text: #f2eadb;
+    --muted: #a89a82;
+    --gold: #d6b56b;
+    --gold-soft: #5c4a26;
+    --border: #3a3022;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -14px rgba(0, 0, 0, 0.8);
+    --warm: #e39a84;
+    --cool: #8fb6dd;
+    --foil-ink: var(--foil);
   }
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); -webkit-tap-highlight-color: transparent; }
-h1 { font-size: 1.3rem; margin: 0; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--gold-soft) 45%, transparent), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-tap-highlight-color: transparent;
+}
+h1 { font-family: var(--mincho); font-weight: 700; font-size: 1.35rem; letter-spacing: 0.04em; margin: 0; }
 img { display: block; max-width: 100%; }
 
 button, input, select, textarea {
@@ -41,112 +61,283 @@ button, input, select, textarea {
 }
 input, select, textarea {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--card);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 20%, transparent);
 }
 button {
-  padding: 10px 16px;
+  padding: 11px 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 999px;
   background: var(--card);
   cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, border-color 0.2s;
 }
-button:disabled { opacity: 0.5; }
-button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
-button.danger { color: var(--warm); background: none; }
-button.link { background: none; border: none; color: var(--muted); text-decoration: underline; }
-label { display: block; font-size: 0.9rem; }
-label input, label select, label textarea { margin-top: 4px; }
-label.check { display: flex; gap: 8px; align-items: center; font-size: 1rem; }
-label.check input { width: auto; margin: 0; }
+button:active:not(:disabled) { transform: scale(0.97); }
+button:disabled { opacity: 0.45; }
+button:not(.primary):not(.link):not(.danger):not(.item):not(.list-item):hover { border-color: var(--gold); }
+
+/* 金箔のボタン。光の筋がゆっくり横切る */
+button.primary {
+  position: relative;
+  overflow: hidden;
+  background: var(--foil);
+  background-size: 200% 100%;
+  color: var(--foil-text);
+  border: 1px solid color-mix(in srgb, var(--gold) 80%, #000);
+  font-family: var(--mincho);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 6px 18px -8px rgba(150, 110, 30, 0.7);
+}
+button.primary::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  transform: skewX(-20deg);
+  animation: sheen 4.5s ease-in-out infinite;
+}
+button.primary:disabled::after { animation: none; }
+@keyframes sheen { 0%, 70% { left: -60%; } 100% { left: 130%; } }
+
+button.danger { color: var(--warm); background: none; border-color: transparent; }
+button.link { background: none; border: none; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+label { display: block; font-size: 0.88rem; color: var(--muted); letter-spacing: 0.03em; }
+label input, label select, label textarea { margin-top: 6px; color: var(--text); }
+label.check { display: flex; gap: 8px; align-items: center; font-size: 1rem; color: var(--text); }
+label.check input { width: auto; margin: 0; accent-color: var(--gold); }
 
 .app { min-height: 100dvh; }
 .content {
-  padding: max(16px, env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom));
+  padding: max(20px, env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
   max-width: 560px;
   margin: 0 auto;
+  animation: page-in 0.45s ease-out;
 }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
+
 .tabbar {
   position: fixed; inset: auto 0 0 0;
   display: flex;
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
 }
-.tabbar button {
-  flex: 1; border: none; border-radius: 0; background: none;
-  display: flex; flex-direction: column; align-items: center;
-  font-size: 0.75rem; color: var(--muted); padding: 8px 0;
+.tabbar::before {
+  content: '';
+  position: absolute; inset: -1px 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.6;
 }
-.tabbar button span { font-size: 1.3rem; }
-.tabbar button.active { color: var(--accent); font-weight: 600; }
+.tabbar button {
+  position: relative;
+  flex: 1; border: none; border-radius: 0; background: none;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 0.7rem; letter-spacing: 0.06em; color: var(--muted); padding: 10px 0 8px;
+}
+.tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.tabbar button.active { color: var(--gold); font-weight: 600; }
+.tabbar button.active::before {
+  content: '✦';
+  position: absolute; top: -2px;
+  font-size: 0.55rem;
+  color: var(--gold);
+}
 
-.stack { display: flex; flex-direction: column; gap: 12px; }
-.row { display: flex; gap: 8px; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; gap: 10px; }
 .row > * { flex: 1; }
 .row.between { justify-content: space-between; align-items: center; }
 .row.between > * { flex: none; }
 .center { text-align: center; padding: 32px 16px; }
 .muted { color: var(--muted); }
 .small { font-size: 0.8rem; }
-.notice { background: var(--card); border-left: 4px solid var(--warm); padding: 8px 12px; border-radius: 6px; margin: 0; }
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+.notice { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--warm); padding: 10px 14px; border-radius: 10px; margin: 0; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
 .card p { margin: 0; }
-.tips { color: var(--muted); }
+.tips { color: var(--muted); font-size: 0.92rem; padding-top: 10px; border-top: 1px dashed var(--border); }
 
-.auth { max-width: 360px; margin: 0 auto; padding: 64px 16px; text-align: center; }
+.auth { max-width: 360px; margin: 0 auto; padding: 72px 16px; text-align: center; }
 .auth h1 { font-size: 1.8rem; margin-bottom: 8px; }
-/* アプリ名の筆記体ロゴ（フォントは index.html で読み込む） */
-.logo { font-family: 'Great Vibes', 'Snell Roundhand', 'Segoe Script', cursive; font-size: 2.2rem; font-weight: normal; line-height: 1.2; color: var(--accent); }
-.auth h1.logo { font-size: 3rem; }
 
-.date { font-size: 1.1rem; }
+/* アプリ名の筆記体ロゴ（金箔の文字） */
+.logo {
+  font-family: var(--script);
+  font-size: 2.4rem;
+  font-weight: normal;
+  letter-spacing: 0;
+  line-height: 1.15;
+  background: var(--foil-ink);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: foil-shift 8s ease-in-out infinite alternate;
+  text-align: center;
+  padding: 4px 0 0;
+}
+.auth h1.logo { font-size: 3.4rem; }
+@keyframes foil-shift { to { background-position: 100% 0; } }
+/* ロゴの下の飾り罫 */
+.ornament { display: flex; align-items: center; gap: 10px; color: var(--gold); font-size: 0.6rem; margin-top: -6px; }
+.ornament::before, .ornament::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--gold)); }
+.ornament::after { transform: scaleX(-1); }
+
+.date { font-family: var(--mincho); font-size: 1.05rem; text-align: center; letter-spacing: 0.12em; color: var(--muted); font-weight: 500; }
+
+.weather { background: linear-gradient(160deg, var(--card), color-mix(in srgb, var(--bg-deep) 60%, var(--card))); }
 .weather-main { display: flex; justify-content: space-between; align-items: center; }
-.big { font-size: 1.4rem; font-weight: 600; }
-.temps { text-align: right; font-size: 1.1rem; }
-.temps .max { color: var(--warm); font-size: 1.6rem; font-weight: 700; }
-.temps .min { color: var(--cool); }
-.hourly { display: grid; grid-template-columns: repeat(6, 1fr); text-align: center; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.big { font-family: var(--mincho); font-size: 1.45rem; font-weight: 700; letter-spacing: 0.05em; }
+.temps { text-align: right; font-size: 1.1rem; font-family: var(--serif); font-variant-numeric: lining-nums; }
+.temps .max { color: var(--warm); font-size: 2rem; font-weight: 600; }
+.temps .min { color: var(--cool); font-size: 1.3rem; }
+.hourly { display: grid; grid-template-columns: repeat(6, 1fr); text-align: center; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px; font-family: var(--serif); font-variant-numeric: lining-nums; }
 
-.outfit-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+/* 提案のカード */
+.look { position: relative; }
+.look-label {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--gold);
+}
+.look p:not(.tips) { font-family: var(--mincho); line-height: 1.9; }
+.reveal { animation: reveal 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.reveal .outfit-grid figure { animation: reveal 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.reveal .outfit-grid figure:nth-child(2) { animation-delay: 0.08s; }
+.reveal .outfit-grid figure:nth-child(3) { animation-delay: 0.16s; }
+.reveal .outfit-grid figure:nth-child(4) { animation-delay: 0.24s; }
+.reveal .outfit-grid figure:nth-child(5) { animation-delay: 0.32s; }
+@keyframes reveal { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+
+/* 決めた装い：金の額縁と、ときどき走る光 */
+.look.chosen {
+  border: 1px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--foil) border-box;
+  box-shadow: var(--shadow), 0 0 0 4px color-mix(in srgb, var(--gold) 12%, transparent), 0 12px 40px -16px color-mix(in srgb, var(--gold) 70%, transparent);
+}
+.look.chosen::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 240, 200, 0.35) 50%, transparent 65%);
+  background-size: 250% 100%;
+  animation: glint 5s ease-in-out infinite;
+}
+@keyframes glint { 0%, 60% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+
+.outfit-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .outfit-grid figure { margin: 0; }
-.outfit-grid img, .noimg { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; background: var(--bg); }
-.noimg { display: flex; align-items: center; justify-content: center; color: var(--muted); }
-.outfit-grid figcaption { font-size: 0.85rem; margin-top: 4px; }
+.outfit-grid img, .noimg { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: var(--bg); }
+.outfit-grid img { box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.5); }
+.noimg {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gold);
+  font-family: var(--mincho);
+  letter-spacing: 0.1em;
+  background: linear-gradient(145deg, var(--bg), var(--bg-deep));
+  border: 1px solid var(--border);
+}
+.outfit-grid figcaption { font-size: 0.85rem; margin-top: 6px; text-align: center; font-family: var(--mincho); }
 
-.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-.chips button { flex: none; padding: 6px 12px; border-radius: 999px; font-size: 0.85rem; }
-.chips button.active, .scale button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.chips button { flex: none; padding: 6px 14px; font-size: 0.85rem; }
+.chips button.active, .scale button.active, .rating .row button.active {
+  background: var(--foil);
+  color: var(--foil-text);
+  border-color: color-mix(in srgb, var(--gold) 80%, #000);
+  font-weight: 600;
+}
 
-.item-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.item { padding: 0; border: none; background: none; text-align: left; }
-.item img, .item .noimg { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
-.item span { display: block; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.item-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.item { padding: 0; border: none; background: none; text-align: left; border-radius: 12px; }
+.item img, .item .noimg { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; font-size: 0.8rem; }
+.item span { display: block; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; text-align: center; }
 
-.preview { width: 100%; max-height: 320px; object-fit: contain; border-radius: 12px; background: var(--card); }
-.scale { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.preview { width: 100%; max-height: 320px; object-fit: contain; border-radius: 14px; background: var(--card); }
+.scale { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--text); }
 .scale button { padding: 6px 0; width: 40px; flex: none; }
-.list-item { text-align: left; }
+.list-item { text-align: left; border-radius: 12px; }
 
+/* 考え中：金のリングと筆記体 */
 .spinner {
-  width: 28px; height: 28px; margin: 0 auto 12px;
-  border: 3px solid var(--border); border-top-color: var(--accent);
-  border-radius: 50%; animation: spin 0.9s linear infinite;
+  width: 34px; height: 34px; margin: 0 auto 12px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 25%, var(--gold));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  animation: spin 1.1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.thinking-title { font-family: var(--script); font-size: 2rem; color: var(--gold); line-height: 1.2; }
 
 .code-input { text-align: center; font-size: 1.2rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .code-display {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 1.3rem; letter-spacing: 0.06em; text-align: center;
-  padding: 12px; border: 1px dashed var(--border); border-radius: 10px; user-select: all;
+  padding: 12px; border: 1px dashed var(--gold); border-radius: 12px; user-select: all;
 }
 
-.rating .row button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .chips.wrap { flex-wrap: wrap; overflow-x: visible; }
 .outfit-grid.small { grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .outfit-grid.small img, .outfit-grid.small .noimg { border-radius: 8px; font-size: 0.65rem; }
-.month { font-size: 1rem; margin: 8px 0 0; color: var(--muted); }
+.month { font-family: var(--mincho); font-size: 1rem; margin: 8px 0 0; color: var(--gold); letter-spacing: 0.1em; }
 .time-input { width: auto; }
+
+/* 装いが決まったときの演出 */
+.celebration {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  /* 明るい画面でも金が映えるよう、幕はいつも漆黒 */
+  background: radial-gradient(circle at 50% 45%, rgba(40, 30, 14, 0.62), rgba(8, 6, 3, 0.86));
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: veil 2.6s ease-in-out forwards;
+}
+.celebration canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.celebration-message { position: relative; text-align: center; animation: message 2.6s ease-in-out forwards; }
+.celebration-script {
+  font-family: var(--script);
+  font-size: 3.2rem;
+  line-height: 1.2;
+  background: var(--foil);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent));
+  animation: foil-shift 2.6s ease-in-out forwards;
+}
+.celebration-sub { font-family: var(--mincho); letter-spacing: 0.2em; color: #f2eadb; font-size: 0.9rem; margin-top: 6px; }
+@keyframes veil { 0% { opacity: 0; } 12%, 75% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes message {
+  0% { opacity: 0; transform: translateY(12px) scale(0.92); letter-spacing: 0.02em; }
+  25%, 75% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  .celebration, .celebration-message { animation: none; }
+}

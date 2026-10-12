@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type MouseEvent } from 'react'
+import Celebration from '../components/Celebration'
 import { itemsOf, OutfitItems, Rating } from '../components/Outfit'
 import { addSamples } from '../lib/sample'
 import { callFunction, signedUrls, supabase, today } from '../lib/supabase'
@@ -11,6 +12,8 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
   const [status, setStatus] = useState<'loading' | 'thinking' | 'ready' | 'empty'>('loading')
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
+  const [celebrate, setCelebrate] = useState<{ x: number; y: number } | null>(null)
+  const endCelebration = useCallback(() => setCelebrate(null), [])
 
   const suggest = useCallback(async () => {
     setStatus('thinking')
@@ -52,8 +55,10 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
     setReload((n) => n + 1)
   }
 
-  async function wear() {
+  async function wear(e: MouseEvent<HTMLButtonElement>) {
     if (!outfit) return
+    const r = e.currentTarget.getBoundingClientRect()
+    setCelebrate({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
     await supabase.from('outfits').update({ worn: false }).eq('date', outfit.date).neq('id', outfit.id)
     await supabase.from('outfits').update({ worn: true }).eq('id', outfit.id)
     setOutfit({ ...outfit, worn: true })
@@ -77,17 +82,20 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
   return (
     <div className="stack">
       <div className="logo">Today's Outfit</div>
+      <div className="ornament">✦</div>
       <h1 className="date">{formatDate(today())}</h1>
       {outfit && <WeatherCard w={outfit.weather} />}
 
       {status === 'thinking' ? (
         <div className="card center muted">
           <div className="spinner" />
-          今日の服を考えています…（30秒ほどかかることがあります）
+          <div className="thinking-title">Styling…</div>
+          今日の装いを考えています（30秒ほどかかることがあります）
         </div>
       ) : (
         outfit && (
-          <div className="card stack">
+          <div key={outfit.id} className={outfit.worn ? 'card stack look reveal chosen' : 'card stack look reveal'}>
+            <div className="look-label">{outfit.worn ? "✦ Today's Choice ✦" : 'Suggestion'}</div>
             <OutfitItems items={chosen} urls={urls} />
             <p>{outfit.comment}</p>
             {outfit.tips && <p className="tips">💡 {outfit.tips}</p>}
@@ -98,9 +106,11 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
 
       {error && <p className="notice">{error}</p>}
 
+      {celebrate && <Celebration origin={celebrate} onDone={endCelebration} />}
+
       <div className="row">
         <button className="primary" onClick={wear} disabled={!outfit || outfit.worn || status === 'thinking'}>
-          {outfit?.worn ? '✓ 今日はこれを着る' : 'これを着る'}
+          {outfit?.worn ? '✦ この装いに決定' : 'この装いに決める'}
         </button>
         <button onClick={suggest} disabled={status === 'thinking'}>別の案</button>
       </div>

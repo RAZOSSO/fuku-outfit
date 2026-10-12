@@ -36,6 +36,7 @@ export default function Login() {
   return (
     <div className="auth">
       <h1 className="logo">Today's Outfit</h1>
+      <div className="ornament">✦</div>
       <p className="muted">
         {mode === 'invite' ? '教えてもらった招待コードを入れてください' : '設定画面でメモした引き継ぎコードを入れてください'}
       </p>

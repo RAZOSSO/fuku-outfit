@@ -26,5 +26,8 @@ export async function signInWithCode(input: string) {
     email: `${EMAIL_PREFIX}${code.toLowerCase()}${EMAIL_DOMAIN}`,
     password: code,
   })
-  if (error) throw new Error('引き継ぎコードが違います')
+  if (error) {
+    if (error.code === 'invalid_credentials') throw new Error('引き継ぎコードが違います')
+    throw new Error(`ログインできませんでした（${error.code ?? error.status}: ${error.message}）`)
+  }
 }

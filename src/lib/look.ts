@@ -94,7 +94,10 @@ export async function generateLook(
   refs.forEach((r, i) => form.append(`ref_${i}`, r.blob, `ref${i}.jpg`))
   if (ownPhoto) {
     const original = await fetch(ownPhoto).then((r) => r.blob())
-    form.append('person_photo', await shrinkImage(original, 500), 'person.jpg')
+    const { width, height } = await createImageBitmap(original)
+    // 本人らしさが残るよう、画像AIが受け付けるぎりぎりの大きさで送り、仕上がりも同じ縦横比にする
+    form.append('person_photo', await shrinkImage(original, 508), 'person.jpg')
+    form.append('person_aspect', String(width / height))
   }
 
   const { url } = await callFunction<{ url: string }>('generate-look', form)

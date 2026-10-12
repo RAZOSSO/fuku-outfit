@@ -179,7 +179,7 @@ function LookFigure({ outfitId, items, urls }: { outfitId: string; items: Item[]
             <button className="primary" onClick={() => make(false)}>✦ 写真風のイメージを作る</button>
           )}
           <p className="muted small">
-            1日6枚まで・{own ? '自分の写真は設定で撮り直せます' : '設定で自分の全身写真を登録すると、自分に着せられます'}
+            {own ? '1日6枚まで（自分に着せるのは3枚まで）・自分の写真は設定で撮り直せます' : '1日6枚まで・設定で自分の全身写真を登録すると、自分に着せられます'}
           </p>
         </div>
       )}

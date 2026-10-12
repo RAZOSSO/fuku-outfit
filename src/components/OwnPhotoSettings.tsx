@@ -36,7 +36,7 @@ export default function OwnPhotoSettings() {
       <h2 className="section-title">自分の全身写真（着せ替え用）</h2>
       <p className="muted small">
         登録すると、写真風イメージで提案の服を<strong>あなた自身に着せた画像</strong>を作れます。
-        頭から足先まで写った、正面向きで体の線がわかる服装の写真がきれいに仕上がります。
+        頭から足先まで写った、正面向きで体の線がわかる服装の写真がきれいに仕上がります。写真の立ち姿・背景・構図はそのまま残り、服だけが入れ替わります。
       </p>
       {url === undefined ? (
         <p className="muted small">確認中…</p>

@@ -20,6 +20,7 @@ export type Item = {
   rain_ok: boolean
   formality: number
   notes: string
+  unavailable?: boolean // 洗濯中・クリーニング中（提案に使わない）
 }
 
 export type ItemDraft = Omit<Item, 'id'>

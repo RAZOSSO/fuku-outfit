@@ -1,7 +1,9 @@
-// 今日の天気と手持ちの服から、服装を1セット提案して outfits に保存する。
+// その日の天気と手持ちの服から、服装を1セット提案して outfits に保存する。
 // 呼ばれ方は2つ:
-//  1. アプリから（ログイン中の利用者のトークン付き）… その人の提案を作って返す
+//  1. アプリから（ログイン中の利用者のトークン付き）… { date, plan? } の提案を作って返す。plan はその日の予定のひと言
 //  2. pg_cron から5分おきに（x-cron-secret ヘッダ付き）… 通知時刻になった人の提案を作ってプッシュ通知する
+//     朝（notify_time）は今日の服、夜（evening_time）は明日の服
+// 洗濯中（items.unavailable）の服は提案に使わない
 // ※ 2 のために「Verify JWT」はオフにする（1 のログイン確認はこのコードの中で行う）
 import Anthropic from "npm:@anthropic-ai/sdk@0.133.0";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -161,7 +163,7 @@ async function askClaude(messages: Anthropic.Beta.BetaMessageParam[]): Promise<A
 }
 
 /** 1人分の提案を作って保存する（supabase は利用者本人のクライアントでも管理者クライアントでもよい） */
-async function generateOutfit(supabase: SupabaseClient, userId: string, date: string): Promise<Outfit> {
+async function generateOutfit(supabase: SupabaseClient, userId: string, date: string, plan = ""): Promise<Outfit> {
   const { count } = await supabase.from("outfits").select("id", { count: "exact", head: true })
     .eq("user_id", userId).eq("date", date);
   if ((count ?? 0) >= DAILY_LIMIT) throw new HttpError(429, `提案は1日${DAILY_LIMIT}回までです`);
@@ -169,17 +171,23 @@ async function generateOutfit(supabase: SupabaseClient, userId: string, date: st
   const daysAgo = (n: number) => new Date(Date.parse(date) - n * 86400_000).toISOString().slice(0, 10);
   const [profileRes, itemsRes, recentRes, ratedRes] = await Promise.all([
     supabase.from("profiles").select("place_name, latitude, longitude, style_notes").eq("user_id", userId).maybeSingle(),
-    supabase.from("items").select("id, name, category, color, material, warmth, rain_ok, formality, notes").eq("user_id", userId),
+    // unavailable 列がまだない（SQL 未実行の）ときも動くよう、全部の列を読んでから絞る
+    supabase.from("items").select("*").eq("user_id", userId),
     supabase.from("outfits").select("date, item_ids, worn").eq("user_id", userId).gte("date", daysAgo(14))
       .order("date", { ascending: false }),
     supabase.from("outfits").select("date, item_ids, rating, feedback, weather").eq("user_id", userId)
       .not("rating", "is", null).gte("date", daysAgo(60)).order("date", { ascending: false }).limit(30),
   ]);
   const profile: Profile = profileRes.data ?? { place_name: "東京", latitude: 35.6895, longitude: 139.6917, style_notes: "" };
-  const items = (itemsRes.data ?? []) as Item[];
-  if (items.length === 0) throw new HttpError(400, "先にクローゼットに服を登録してください");
+  const allItems = (itemsRes.data ?? []) as (Item & { unavailable?: boolean })[];
+  if (allItems.length === 0) throw new HttpError(400, "先にクローゼットに服を登録してください");
+  const items: Item[] = allItems.filter((i) => !i.unavailable).map((i) => ({
+    id: i.id, name: i.name, category: i.category, color: i.color, material: i.material,
+    warmth: i.warmth, rain_ok: i.rain_ok, formality: i.formality, notes: i.notes,
+  }));
+  if (items.length === 0) throw new HttpError(400, "着られる服がありません（すべて洗濯中になっています）");
 
-  const names = new Map(items.map((i) => [i.id, i.name]));
+  const names = new Map(allItems.map((i) => [i.id, i.name])); // 履歴の表示には洗濯中の服も使う
   const describe = (ids: string[]) => ids.map((id) => names.get(id) ?? "（削除済み）").join("、");
   const recent = recentRes.data ?? [];
   const wornLines = recent.filter((o) => o.worn && o.date !== date).map((o) => `- ${o.date}: ${describe(o.item_ids)}`);
@@ -193,7 +201,7 @@ async function generateOutfit(supabase: SupabaseClient, userId: string, date: st
   const weather = await fetchWeather(profile, date);
 
   const weekday = "日月火水木金土"[new Date(`${date}T00:00:00Z`).getUTCDay()];
-  const prompt = `# 今日（${date}・${weekday}曜日）の天気 — ${weather.place}
+  const prompt = `${plan ? `# この日の予定（本人がこの提案のために書いたもの。最優先する）\n${plan}\n\n` : ""}# ${date}（${weekday}曜日）の天気 — ${weather.place}
 ${JSON.stringify(weather, null, 1)}
 （気温は℃、風速は m/s、降水確率は %）
 
@@ -261,7 +269,10 @@ function checkOutfit(ids: string[], items: Item[]): string[] {
 type Subscription = {
   endpoint: string; user_id: string; p256dh: string; auth: string;
   notify_time: string; timezone: string; last_sent_date: string | null;
+  evening_time?: string | null; last_evening_date?: string | null; // SQL（laundry_and_evening）を実行すると増える列
 };
+
+const nextDay = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) + 86400_000).toISOString().slice(0, 10);
 
 /** そのタイムゾーンでの今日の日付と、0時からの経過分 */
 function localNow(timeZone: string) {
@@ -284,35 +295,45 @@ async function runMorning() {
   const { data: subs, error } = await admin.from("push_subscriptions").select("*");
   if (error) throw error;
 
-  // 通知時刻になった端末を、利用者ごとにまとめる
-  const due = new Map<string, { date: string; subs: Subscription[] }>();
+  // 通知時刻になった端末を、利用者と朝夜ごとにまとめる（朝は今日の服、夜は明日の服）
+  type Due = { userId: string; evening: boolean; sentDate: string; outfitDate: string; subs: Subscription[] };
+  const due = new Map<string, Due>();
   for (const s of (subs ?? []) as Subscription[]) {
     const now = localNow(s.timezone);
-    const [h, m] = s.notify_time.split(":").map(Number);
-    const passed = now.minutes - (h * 60 + m);
-    if (s.last_sent_date === now.date || passed < 0 || passed > NOTIFY_WINDOW_MIN) continue;
-    const entry = due.get(s.user_id) ?? { date: now.date, subs: [] };
-    entry.subs.push(s);
-    due.set(s.user_id, entry);
+    for (const evening of [false, true]) {
+      const time = evening ? s.evening_time : s.notify_time;
+      if (!time) continue;
+      const [h, m] = time.split(":").map(Number);
+      const passed = now.minutes - (h * 60 + m);
+      const last = evening ? s.last_evening_date : s.last_sent_date;
+      if (last === now.date || passed < 0 || passed > NOTIFY_WINDOW_MIN) continue;
+      const key = `${s.user_id}|${evening}`;
+      const entry = due.get(key) ??
+        { userId: s.user_id, evening, sentDate: now.date, outfitDate: evening ? nextDay(now.date) : now.date, subs: [] };
+      entry.subs.push(s);
+      due.set(key, entry);
+    }
   }
 
-  await Promise.all([...due].map(async ([userId, { date, subs }]) => {
+  await Promise.all([...due.values()].map(async ({ userId, evening, sentDate, outfitDate, subs }) => {
     // 先に送信済みにして、AI が失敗しても5分おきに何度もやり直さない（費用を増やさない）
-    await admin.from("push_subscriptions").update({ last_sent_date: date }).in("endpoint", subs.map((s) => s.endpoint));
+    await admin.from("push_subscriptions").update(evening ? { last_evening_date: sentDate } : { last_sent_date: sentDate })
+      .in("endpoint", subs.map((s) => s.endpoint));
 
-    let payload = { title: "Today's Outfit", body: "今日の服装を見てみましょう" };
+    const label = evening ? "Tomorrow's Outfit" : "Today's Outfit";
+    let payload = { title: label, body: evening ? "明日の服装を見てみましょう" : "今日の服装を見てみましょう" };
     try {
-      const { data: existing } = await admin.from("outfits").select("*").eq("user_id", userId).eq("date", date)
-        .order("created_at", { ascending: false }).limit(1);
-      const outfit = (existing?.[0] as Outfit | undefined) ?? await generateOutfit(admin, userId, date);
+      const { data: existing } = await admin.from("outfits").select("*").eq("user_id", userId).eq("date", outfitDate)
+        .order("worn", { ascending: false }).order("created_at", { ascending: false }).limit(1);
+      const outfit = (existing?.[0] as Outfit | undefined) ?? await generateOutfit(admin, userId, outfitDate);
       const { data: items } = await admin.from("items").select("id, name").in("id", outfit.item_ids);
       const w = outfit.weather;
       payload = {
-        title: `Today's Outfit　${w.summary} ${Math.round(w.max)}° / ${Math.round(w.min)}°`,
+        title: `${label}　${w.summary} ${Math.round(w.max)}° / ${Math.round(w.min)}°`,
         body: [(items ?? []).map((i) => i.name).join("・"), outfit.tips].filter(Boolean).join("\n"),
       };
     } catch (e) {
-      console.error("morning outfit failed", userId, e);
+      console.error("notification outfit failed", userId, evening, e);
     }
 
     await Promise.all(subs.map(async (s) => {
@@ -354,7 +375,8 @@ async function handle(req: Request): Promise<Response> {
 
   const body = await req.json().catch(() => ({}));
   const date: string = /^\d{4}-\d{2}-\d{2}$/.test(body.date ?? "") ? body.date : new Date().toISOString().slice(0, 10);
-  return json(await generateOutfit(supabase, auth.user.id, date));
+  const plan = typeof body.plan === "string" ? body.plan.trim().slice(0, 200) : "";
+  return json(await generateOutfit(supabase, auth.user.id, date, plan));
 }
 
 Deno.serve(async (req) => {

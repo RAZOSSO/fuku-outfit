@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react'
-import { currentSubscription, disablePush, enablePush, pushSupported, savedPushTime, updatePushTime } from '../lib/push'
+import { currentSubscription, disablePush, enablePush, pushSupported, savedPushTimes, updateEveningTime, updatePushTime } from '../lib/push'
 
 /** 設定画面の「毎朝の通知」 */
 export default function PushSettings() {
   const [sub, setSub] = useState<PushSubscription | null | undefined>(undefined)
   const [time, setTime] = useState('07:00')
+  const [evening, setEvening] = useState<string | null>(null) // 前の晩の通知の時刻（null ならなし）
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     ;(async () => {
       const s = await currentSubscription()
-      const saved = s ? await savedPushTime(s) : null
-      if (saved) setTime(saved)
+      const saved = s ? await savedPushTimes(s) : null
+      if (saved) {
+        setTime(saved.morning)
+        setEvening(saved.evening)
+      }
       setSub(saved ? s : null) // サーバーに登録が残っていない端末はオフ扱い
     })()
   }, [])
@@ -41,7 +45,7 @@ export default function PushSettings() {
         <p className="muted small">確認中…</p>
       ) : (
         <>
-          <p className="muted small">決めた時刻に、天気に合わせた今日の服を用意して通知します。アプリを開くとすぐに見られます。</p>
+          <p className="muted small">決めた時刻に、天気に合わせた今日の服を用意して通知します。アプリを開くとすぐに見られます。前の晩に、明日の服を知らせることもできます。</p>
           <label className="row between">
             通知する時刻
             <input
@@ -54,6 +58,39 @@ export default function PushSettings() {
               }}
             />
           </label>
+          {sub && (
+            <>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={evening !== null}
+                  onChange={(e) => {
+                    const next = e.target.checked ? '21:00' : null
+                    run(async () => {
+                      await updateEveningTime(sub, next)
+                      setEvening(next)
+                    }, next ? '前の晩にも明日の服を通知します' : '前の晩の通知をやめました')
+                  }}
+                />
+                前の晩にも、明日の服を通知する
+              </label>
+              {evening !== null && (
+                <label className="row between">
+                  前の晩の時刻
+                  <input
+                    type="time"
+                    className="time-input"
+                    value={evening}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setEvening(v)
+                      if (v) updateEveningTime(sub, v).then(() => setMessage('前の晩の時刻を変更しました'), (err) => setMessage(err.message))
+                    }}
+                  />
+                </label>
+              )}
+            </>
+          )}
           {sub ? (
             <button disabled={busy} onClick={() => run(() => disablePush(sub), '通知をオフにしました')}>通知をオフにする</button>
           ) : (

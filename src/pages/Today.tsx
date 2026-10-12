@@ -8,32 +8,42 @@ import { addSamples } from '../lib/sample'
 import { callFunction, signedUrls, supabase, today } from '../lib/supabase'
 import type { Item, Outfit, Weather } from '../lib/types'
 
+type Day = 'today' | 'tomorrow'
+
 export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
+  const [day, setDay] = useState<Day>('today')
   const [outfit, setOutfit] = useState<Outfit | null>(null)
   const [items, setItems] = useState<Item[]>([])
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<'loading' | 'thinking' | 'ready' | 'empty'>('loading')
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
+  const [plans, setPlans] = useState<Record<Day, string>>({ today: '', tomorrow: '' })
   const [celebrate, setCelebrate] = useState<{ x: number; y: number } | null>(null)
   const endCelebration = useCallback(() => setCelebrate(null), [])
 
-  const suggest = useCallback(async () => {
+  const date = today(day === 'today' ? 0 : 1)
+  const dayLabel = day === 'today' ? '今日' : '明日'
+  const plan = plans[day]
+
+  const suggest = useCallback(async (planText = '') => {
     setStatus('thinking')
     setError('')
     try {
-      setOutfit(await callFunction<Outfit>('suggest-outfit', { date: today() }))
+      setOutfit(await callFunction<Outfit>('suggest-outfit', { date, plan: planText }))
     } catch (e) {
       setError((e as Error).message)
     }
     setStatus('ready')
-  }, [])
+  }, [date])
 
   useEffect(() => {
     ;(async () => {
+      setStatus('loading')
+      setOutfit(null)
       const [{ data: itemRows }, { data: outfitRows }] = await Promise.all([
         supabase.from('items').select('*'),
-        supabase.from('outfits').select('*').eq('date', today()).order('worn', { ascending: false }).order('created_at', { ascending: false }).limit(1),
+        supabase.from('outfits').select('*').eq('date', date).order('worn', { ascending: false }).order('created_at', { ascending: false }).limit(1),
       ])
       const all = (itemRows ?? []) as Item[]
       setItems(all)
@@ -43,10 +53,10 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
         setOutfit(outfitRows[0] as Outfit)
         setStatus('ready')
       } else {
-        await suggest() // 朝はじめて開いたときは自動で提案する
+        await suggest() // その日をはじめて開いたときは自動で提案する
       }
     })()
-  }, [suggest, reload])
+  }, [suggest, reload, date])
 
   async function trySamples() {
     setStatus('loading')
@@ -68,7 +78,6 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
     setOutfit({ ...outfit, worn: true })
   }
 
-  if (status === 'loading') return <div className="center muted">読み込み中…</div>
   if (status === 'empty')
     return (
       <div className="stack">
@@ -85,22 +94,32 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
     )
 
   const chosen = outfit ? itemsOf(outfit, new Map(items.map((i) => [i.id, i]))) : []
+  const busy = status === 'loading' || status === 'thinking'
 
   return (
     <div className="stack">
-      <PageHeader title="Today's Outfit" sub={formatDate(today())} />
-      {outfit && <WeatherCard w={outfit.weather} />}
+      <PageHeader title={day === 'today' ? "Today's Outfit" : "Tomorrow's Outfit"} sub={formatDate(date)} />
+      <div className="segmented" role="tablist">
+        {(['today', 'tomorrow'] as const).map((d) => (
+          <button key={d} role="tab" aria-selected={day === d} className={day === d ? 'active' : ''} onClick={() => setDay(d)} disabled={busy}>
+            {d === 'today' ? '今日' : '明日'}
+          </button>
+        ))}
+      </div>
+      {outfit && status !== 'loading' && <WeatherCard w={outfit.weather} />}
 
-      {status === 'thinking' ? (
+      {status === 'loading' ? (
+        <div className="center muted">読み込み中…</div>
+      ) : status === 'thinking' ? (
         <div className="card center muted">
           <div className="spinner" />
           <div className="thinking-title">Styling…</div>
-          今日の装いを考えています（30秒ほどかかることがあります）
+          {dayLabel}の装いを考えています（30秒ほどかかることがあります）
         </div>
       ) : (
         outfit && (
           <div key={outfit.id} className={outfit.worn ? 'card stack look reveal chosen' : 'card stack look reveal'}>
-            <div className="look-label">{outfit.worn ? "✦ Today's Choice ✦" : 'Suggestion'}</div>
+            <div className="look-label">{outfit.worn ? `✦ ${day === 'today' ? "Today's" : "Tomorrow's"} Choice ✦` : 'Suggestion'}</div>
             <LookFigure outfitId={outfit.id} items={chosen} urls={urls} />
             <OutfitItems items={chosen} urls={urls} />
             <p>{outfit.comment}</p>
@@ -115,10 +134,25 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
       {celebrate && <Celebration origin={celebrate} onDone={endCelebration} />}
 
       <div className="row">
-        <button className="primary" onClick={wear} disabled={!outfit || status === 'thinking'}>
+        <button className="primary" onClick={wear} disabled={!outfit || busy}>
           {outfit?.worn ? '✦ 決定済み' : 'この装いに決める'}
         </button>
-        <button onClick={suggest} disabled={status === 'thinking'}>別の案</button>
+        <button onClick={() => suggest(plan)} disabled={busy}>別の案</button>
+      </div>
+
+      <div className="card stack plan">
+        <label>
+          {dayLabel}の予定をひと言（任意）
+          <input
+            value={plan}
+            maxLength={200}
+            placeholder="例：午後から会議、夜は食事／自転車で移動"
+            onChange={(e) => setPlans({ ...plans, [day]: e.target.value })}
+            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && plan.trim() && !busy && suggest(plan)}
+            enterKeyHint="go"
+          />
+        </label>
+        <button onClick={() => suggest(plan)} disabled={!plan.trim() || busy}>この予定に合わせて組み直す</button>
       </div>
     </div>
   )

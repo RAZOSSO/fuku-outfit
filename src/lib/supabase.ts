@@ -20,8 +20,9 @@ export async function callFunction<T>(name: string, body: Record<string, unknown
 }
 
 /** 端末のタイムゾーンでの今日の日付（YYYY-MM-DD） */
-export function today(): string {
+export function today(offsetDays = 0): string {
   const d = new Date()
+  d.setDate(d.getDate() + offsetDays) // 1 なら明日
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 

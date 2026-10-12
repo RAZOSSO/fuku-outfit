@@ -46,10 +46,18 @@ export async function disablePush(sub: PushSubscription) {
   await sub.unsubscribe()
 }
 
-/** 登録済みの通知時刻（HH:MM） */
-export async function savedPushTime(sub: PushSubscription): Promise<string | null> {
-  const { data } = await supabase.from('push_subscriptions').select('notify_time').eq('endpoint', sub.endpoint).maybeSingle()
-  return data ? String(data.notify_time).slice(0, 5) : null
+/** 登録済みの通知時刻（HH:MM）。evening は前の晩の通知（なければ null） */
+export async function savedPushTimes(sub: PushSubscription): Promise<{ morning: string; evening: string | null } | null> {
+  // evening_time 列がまだない（SQL 未実行の）ときも読めるよう、全部の列を読む
+  const { data } = await supabase.from('push_subscriptions').select('*').eq('endpoint', sub.endpoint).maybeSingle()
+  if (!data) return null
+  return { morning: String(data.notify_time).slice(0, 5), evening: data.evening_time ? String(data.evening_time).slice(0, 5) : null }
+}
+
+/** 前の晩の通知の時刻を変える（null でやめる） */
+export async function updateEveningTime(sub: PushSubscription, time: string | null) {
+  const { error } = await supabase.from('push_subscriptions').update({ evening_time: time }).eq('endpoint', sub.endpoint)
+  if (error) throw new Error('設定できませんでした。Supabase で laundry_and_evening の SQL を実行してください（' + error.message + '）')
 }
 
 function base64UrlToBytes(base64Url: string): Uint8Array<ArrayBuffer> {

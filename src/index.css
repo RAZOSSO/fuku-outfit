@@ -484,3 +484,26 @@ label.check input { width: auto; margin: 0; accent-color: var(--gold); }
 /* 設定の全身写真 */
 .own-photo { display: grid; grid-template-columns: 110px 1fr; gap: 14px; align-items: center; }
 .own-photo img { width: 110px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; border: 1px solid var(--gold-soft); }
+
+/* 今日／明日の切り替え */
+.segmented {
+  display: grid; grid-template-columns: 1fr 1fr;
+  padding: 3px; gap: 3px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--card);
+  width: min(240px, 100%); margin: 0 auto;
+}
+.segmented button { border: none; padding: 6px 0; font-family: var(--mincho); font-size: 0.9rem; letter-spacing: 0.12em; background: none; }
+.segmented button.active { background: var(--foil); color: var(--foil-text); font-weight: 700; }
+
+/* 洗濯中 */
+.item { position: relative; }
+.item.unavailable img, .item.unavailable .noimg { opacity: 0.38; filter: grayscale(0.6); }
+.item .badge {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  font-style: normal; font-family: var(--mincho); font-size: 0.68rem; letter-spacing: 0.1em;
+  padding: 1px 10px; border-radius: 999px;
+  background: var(--card); color: var(--gold); border: 1px solid var(--gold-soft);
+}
+.laundry-toggle { align-self: center; font-size: 0.85rem; padding: 7px 16px; }
+.laundry-toggle.active { background: var(--foil); color: var(--foil-text); border-color: color-mix(in srgb, var(--gold) 80%, #000); font-weight: 600; }

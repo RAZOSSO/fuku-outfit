@@ -9,11 +9,12 @@ type Editing = { id?: string; draft: ItemDraft; previewUrl?: string }
 export default function Closet() {
   const [items, setItems] = useState<Item[]>([])
   const [urls, setUrls] = useState<Record<string, string>>({})
-  const [filter, setFilter] = useState<Category | 'all'>('all')
+  const [filter, setFilter] = useState<Category | 'all' | 'laundry'>('all')
   const [editing, setEditing] = useState<Editing | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [describing, setDescribing] = useState(false)
+  const [laundryMode, setLaundryMode] = useState(false) // オンのあいだは、服を押すと洗濯中を切り替える
   const [description, setDescription] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -83,6 +84,16 @@ export default function Closet() {
     load()
   }
 
+  async function toggleLaundry(item: Item) {
+    const next = !item.unavailable
+    setItems(items.map((x) => (x.id === item.id ? { ...x, unavailable: next } : x)))
+    const { error: err } = await supabase.from('items').update({ unavailable: next }).eq('id', item.id)
+    if (err) {
+      setError('洗濯中にできませんでした。Supabase の SQL Editor で laundry_and_evening の SQL を実行してください（' + err.message + '）')
+      load()
+    }
+  }
+
   async function run(label: string, action: () => Promise<void>) {
     setError('')
     setBusy(label)
@@ -107,7 +118,9 @@ export default function Closet() {
       />
     )
 
-  const shown = filter === 'all' ? items : items.filter((i) => i.category === filter)
+  const laundryCount = items.filter((i) => i.unavailable).length
+  const shown =
+    filter === 'all' ? items : filter === 'laundry' ? items.filter((i) => i.unavailable) : items.filter((i) => i.category === filter)
   const sampleCount = items.filter((i) => i.notes === SAMPLE_NOTE).length
 
   return (
@@ -176,17 +189,28 @@ export default function Closet() {
         {(Object.keys(CATEGORIES) as Category[]).map((c) => (
           <button key={c} className={filter === c ? 'active' : ''} onClick={() => setFilter(c)}>{CATEGORIES[c]}</button>
         ))}
+        {laundryCount > 0 && (
+          <button className={filter === 'laundry' ? 'active' : ''} onClick={() => setFilter('laundry')}>洗濯中 {laundryCount}</button>
+        )}
       </div>
+
+      {items.length > 0 && (
+        <button className={laundryMode ? 'laundry-toggle active' : 'laundry-toggle'} onClick={() => setLaundryMode(!laundryMode)}>
+          {laundryMode ? '✓ 洗濯中の切り替えを終える' : '🧺 洗濯中・クリーニング中を選ぶ'}
+        </button>
+      )}
+      {laundryMode && <p className="muted small center-text">服を押すと「洗濯中」になり、提案に使われなくなります。もう一度押すと戻ります。</p>}
 
       <div className="item-grid">
         {shown.map((i, idx) => (
           <button
             key={i.id}
-            className="item"
+            className={i.unavailable ? 'item unavailable' : 'item'}
             style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}
-            onClick={() => setEditing({ id: i.id, draft: toDraft(i) })}
+            onClick={() => (laundryMode ? toggleLaundry(i) : setEditing({ id: i.id, draft: toDraft(i) }))}
           >
             {i.photo_path && urls[i.photo_path] ? <img src={urls[i.photo_path]} alt={i.name} /> : <div className="noimg">{CATEGORIES[i.category]}</div>}
+            {i.unavailable && <em className="badge">洗濯中</em>}
             <span>{i.name}</span>
           </button>
         ))}

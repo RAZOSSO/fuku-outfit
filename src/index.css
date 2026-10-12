@@ -271,13 +271,24 @@ label.check input { width: auto; margin: 0; accent-color: var(--gold); }
 }
 
 .item-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.item { padding: 0; border: none; background: none; text-align: left; border-radius: 12px; }
-.item img, .item .noimg { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; font-size: 0.8rem; }
-.item span { display: block; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; text-align: center; }
+.item {
+  padding: 6px 6px 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  text-align: left;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  animation: reveal 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.item:hover { border-color: var(--gold); }
+.item img, .item .noimg { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 11px; font-size: 0.8rem; }
+.item span { display: block; font-family: var(--mincho); font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 6px; text-align: center; }
 
 .preview { width: 100%; max-height: 320px; object-fit: contain; border-radius: 14px; background: var(--card); }
 .scale { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--text); }
-.scale button { padding: 6px 0; width: 40px; flex: none; }
+.scale button { padding: 0; width: 38px; height: 38px; flex: none; border-radius: 50%; font-family: var(--serif); font-size: 1.05rem; }
+.scale-label { font-size: 0.88rem; color: var(--muted); letter-spacing: 0.03em; }
 .list-item { text-align: left; border-radius: 12px; }
 
 /* 考え中：金のリングと筆記体 */
@@ -302,7 +313,6 @@ label.check input { width: auto; margin: 0; accent-color: var(--gold); }
 .chips.wrap { flex-wrap: wrap; overflow-x: visible; }
 .outfit-grid.small { grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .outfit-grid.small img, .outfit-grid.small .noimg { border-radius: 8px; font-size: 0.65rem; }
-.month { font-family: var(--mincho); font-size: 1rem; margin: 8px 0 0; color: var(--gold); letter-spacing: 0.1em; }
 .time-input { width: auto; }
 
 /* 装いが決まったときの演出 */
@@ -341,3 +351,75 @@ label.check input { width: auto; margin: 0; accent-color: var(--gold); }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
   .celebration, .celebration-message { animation: none; }
 }
+
+/* ---- 各画面の見出し ---- */
+.page-header { text-align: center; padding-bottom: 4px; }
+.page-header .ornament { margin-top: -4px; }
+.page-sub { font-family: var(--mincho); font-size: 1.02rem; font-weight: 500; letter-spacing: 0.16em; color: var(--muted); margin-top: 6px; }
+.count {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 0 10px;
+  font-family: var(--serif);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+  border: 1px solid var(--gold-soft);
+  border-radius: 999px;
+  vertical-align: 2px;
+  font-variant-numeric: lining-nums;
+}
+.section-title {
+  font-family: var(--mincho);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title::before { content: '✦'; color: var(--gold); font-size: 0.7rem; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--gold-soft), transparent); }
+.center-text { text-align: center; }
+
+/* 空っぽのときの案内 */
+.empty { padding: 28px 20px; gap: 12px; }
+.empty .lead { font-family: var(--mincho); font-size: 1.1rem; font-weight: 700; letter-spacing: 0.08em; }
+.empty .lead::before, .empty .lead::after { content: '✦'; color: var(--gold); font-size: 0.6rem; margin: 0 10px; vertical-align: 3px; }
+
+/* ---- 履歴（ジャーナル） ---- */
+.month {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0 0;
+  font-family: var(--serif);
+  font-size: 1.05rem; font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  font-variant-numeric: lining-nums;
+}
+.month::before, .month::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-soft)); }
+.month::after { transform: scaleX(-1); }
+.month-en { font-family: var(--script); font-size: 1.9rem; color: var(--gold); letter-spacing: 0; }
+.journal-head { display: flex; align-items: center; gap: 16px; }
+.journal-day { display: flex; flex-direction: column; align-items: center; min-width: 58px; padding-right: 16px; border-right: 1px solid var(--border); }
+.day-num { font-family: var(--serif); font-size: 2.4rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums; color: var(--gold); }
+.day-week { font-family: var(--mincho); font-size: 0.7rem; letter-spacing: 0.1em; color: var(--muted); margin-top: 4px; }
+.journal-weather { font-family: var(--mincho); font-variant-numeric: lining-nums; }
+.journal-weather .max { color: var(--warm); }
+.journal-weather .min { color: var(--cool); }
+
+/* 評価ボタン */
+.rating { padding-top: 12px; border-top: 1px solid var(--border); }
+.rating .row button { font-family: var(--mincho); letter-spacing: 0.06em; }
+
+/* ---- 設定 ---- */
+.current-place { font-family: var(--mincho); font-size: 1.25rem; font-weight: 700; letter-spacing: 0.06em; text-align: center; padding: 6px 0; }
+
+/* ---- ログイン ---- */
+.tagline { font-family: var(--mincho); letter-spacing: 0.14em; line-height: 2; color: var(--muted); font-size: 0.9rem; margin: 10px 0 28px; }
+.auth-card {
+  border: 1px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--foil) border-box;
+  padding: 24px 20px;
+}
+.auth-card p { margin: 0; }
+.auth > .small { margin-top: 24px; }

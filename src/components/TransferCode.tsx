@@ -27,7 +27,7 @@ export default function TransferCode({ user }: { user: User }) {
 
   return (
     <div className="card stack">
-      <div><strong>引き継ぎコード</strong></div>
+      <h2 className="section-title">引き継ぎコード</h2>
       <p className="muted small">
         機種変更やアプリを消したときに、このコードでデータを戻せます。スクショやメモで保管してください。
         人に教えると、あなたのクローゼットを見られてしまうので注意してください。

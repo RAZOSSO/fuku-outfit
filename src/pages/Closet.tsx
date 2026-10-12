@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { callFunction, shrinkImage, signedUrls, supabase } from '../lib/supabase'
+import PageHeader from '../components/PageHeader'
 import { addSamples, removeSamples, SAMPLE_NOTE } from '../lib/sample'
 import { CATEGORIES, type Category, type Item, type ItemDraft } from '../lib/types'
 
@@ -111,7 +112,7 @@ export default function Closet() {
 
   return (
     <div className="stack">
-      <h1>クローゼット <span className="muted small">{items.length}点</span></h1>
+      <PageHeader title="Wardrobe" sub={<>クローゼット<span className="count">{items.length}点</span></>} />
       <div className="row">
         <button className="primary" onClick={() => fileInput.current?.click()} disabled={!!busy}>📷 写真で追加</button>
         <button onClick={() => setDescribing(!describing)} disabled={!!busy}>✏️ 言葉で追加</button>
@@ -154,8 +155,9 @@ export default function Closet() {
       {error && <p className="notice">{error}</p>}
 
       {items.length === 0 && !busy && (
-        <div className="card stack">
-          <p>写真を撮る前に、サンプルの服でどんな提案になるか試せます。</p>
+        <div className="card stack center empty">
+          <p className="lead">クローゼットはまだ空です</p>
+          <p className="muted">写真か言葉で、手持ちの服を1点ずつ登録しましょう。写真を撮る前に、サンプルの服でどんな提案になるか試すこともできます。</p>
           <button onClick={() => run('サンプルを入れています…', addSamples)}>サンプルの服を入れて試す</button>
         </div>
       )}
@@ -177,8 +179,13 @@ export default function Closet() {
       </div>
 
       <div className="item-grid">
-        {shown.map((i) => (
-          <button key={i.id} className="item" onClick={() => setEditing({ id: i.id, draft: toDraft(i) })}>
+        {shown.map((i, idx) => (
+          <button
+            key={i.id}
+            className="item"
+            style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}
+            onClick={() => setEditing({ id: i.id, draft: toDraft(i) })}
+          >
             {i.photo_path && urls[i.photo_path] ? <img src={urls[i.photo_path]} alt={i.name} /> : <div className="noimg">{CATEGORIES[i.category]}</div>}
             <span>{i.name}</span>
           </button>
@@ -207,28 +214,29 @@ function ItemForm(props: {
 
   return (
     <div className="stack">
-      <h1>{props.editing.id ? '服を編集' : 'AIの判定を確認'}</h1>
+      <PageHeader title={props.editing.id ? 'Atelier' : 'New Piece'} sub={props.editing.id ? '服を編集' : 'AIの判定を確認'} />
       {props.imageUrl && <img className="preview" src={props.imageUrl} alt="" />}
-      {!props.editing.id && <p className="muted small">違うところがあれば直してから保存してください。</p>}
-
-      <label>名前<input value={d.name} onChange={(e) => set('name', e.target.value)} /></label>
-      <label>
-        種類
-        <select value={d.category} onChange={(e) => set('category', e.target.value as Category)}>
-          {(Object.keys(CATEGORIES) as Category[]).map((c) => <option key={c} value={c}>{CATEGORIES[c]}</option>)}
-        </select>
-      </label>
-      <div className="row">
-        <label>色<input value={d.color} onChange={(e) => set('color', e.target.value)} /></label>
-        <label>素材<input value={d.material} onChange={(e) => set('material', e.target.value)} /></label>
+      {!props.editing.id && <p className="muted small center-text">違うところがあれば直してから保存してください。</p>}
+      <div className="card stack">
+        <label>名前<input value={d.name} onChange={(e) => set('name', e.target.value)} /></label>
+        <label>
+          種類
+          <select value={d.category} onChange={(e) => set('category', e.target.value as Category)}>
+            {(Object.keys(CATEGORIES) as Category[]).map((c) => <option key={c} value={c}>{CATEGORIES[c]}</option>)}
+          </select>
+        </label>
+        <div className="row">
+          <label>色<input value={d.color} onChange={(e) => set('color', e.target.value)} /></label>
+          <label>素材<input value={d.material} onChange={(e) => set('material', e.target.value)} /></label>
+        </div>
+        <Scale label="暖かさ" low="真夏" high="真冬" value={d.warmth} onChange={(v) => set('warmth', v)} />
+        <Scale label="きちんと度" low="部屋着" high="フォーマル" value={d.formality} onChange={(v) => set('formality', v)} />
+        <label className="check">
+          <input type="checkbox" checked={d.rain_ok} onChange={(e) => set('rain_ok', e.target.checked)} />
+          雨の日でもOK
+        </label>
+        <label>メモ<textarea rows={2} value={d.notes} onChange={(e) => set('notes', e.target.value)} /></label>
       </div>
-      <Scale label="暖かさ" low="真夏" high="真冬" value={d.warmth} onChange={(v) => set('warmth', v)} />
-      <Scale label="きちんと度" low="部屋着" high="フォーマル" value={d.formality} onChange={(v) => set('formality', v)} />
-      <label className="check">
-        <input type="checkbox" checked={d.rain_ok} onChange={(e) => set('rain_ok', e.target.checked)} />
-        雨の日でもOK
-      </label>
-      <label>メモ<textarea rows={2} value={d.notes} onChange={(e) => set('notes', e.target.value)} /></label>
 
       <div className="row">
         <button className="primary" onClick={props.onSave} disabled={!d.name}>保存</button>
@@ -242,7 +250,7 @@ function ItemForm(props: {
 function Scale(props: { label: string; low: string; high: string; value: number; onChange: (v: number) => void }) {
   return (
     <div>
-      <div>{props.label}</div>
+      <div className="scale-label">{props.label}</div>
       <div className="scale">
         <span className="muted small">{props.low}</span>
         {[1, 2, 3, 4, 5].map((n) => (

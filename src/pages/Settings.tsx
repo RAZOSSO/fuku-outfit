@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
+import PageHeader from '../components/PageHeader'
 import PushSettings from '../components/PushSettings'
 import TransferCode from '../components/TransferCode'
 import { searchPlaces, type Place } from '../lib/geocode'
@@ -49,10 +50,11 @@ export default function Settings({ user }: { user: User }) {
 
   return (
     <div className="stack">
-      <h1>設定</h1>
+      <PageHeader title="Preferences" sub="設定" />
 
       <div className="card stack">
-        <div>天気を見る地域：<strong>{profile.place_name}</strong></div>
+        <h2 className="section-title">天気を見る地域</h2>
+        <div className="current-place">{profile.place_name}</div>
         <div className="row">
           <input
             placeholder="市区町村・町名（例：横浜、渋谷区、吉祥寺）"
@@ -80,8 +82,9 @@ export default function Settings({ user }: { user: User }) {
       </div>
 
       <div className="card stack">
+        <h2 className="section-title">好み・ふだんの予定</h2>
         <label>
-          好み・ふだんの予定（AIへのメモ）
+          AIへのメモ
           <textarea
             rows={4}
             placeholder="例：平日はオフィスカジュアル。寒がり。自転車通勤なのでスカートは避けたい。"

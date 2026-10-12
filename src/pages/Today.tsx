@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import Celebration from '../components/Celebration'
+import PageHeader from '../components/PageHeader'
 import { itemsOf, OutfitItems, Rating } from '../components/Outfit'
 import { addSamples } from '../lib/sample'
 import { callFunction, signedUrls, supabase, today } from '../lib/supabase'
@@ -67,13 +68,16 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
   if (status === 'loading') return <div className="center muted">読み込み中…</div>
   if (status === 'empty')
     return (
-      <div className="center stack">
-        <p>まずは手持ちの服を登録しましょう。</p>
-        <p className="muted">トップス・ボトムス・靴が数点ずつあると提案できます。</p>
-        <button className="primary" onClick={onGoCloset}>クローゼットへ</button>
-        <button onClick={trySamples}>サンプルの服で試してみる</button>
-        <p className="muted small">サンプルはあとでクローゼットからまとめて消せます。</p>
-        {error && <p className="notice">{error}</p>}
+      <div className="stack">
+        <PageHeader title="Welcome" sub="ようこそ" />
+        <div className="card stack center empty">
+          <p className="lead">まずは手持ちの服を登録しましょう</p>
+          <p className="muted">トップス・ボトムス・靴が数点ずつあると提案できます。</p>
+          <button className="primary" onClick={onGoCloset}>クローゼットへ</button>
+          <button onClick={trySamples}>サンプルの服で試してみる</button>
+          <p className="muted small">サンプルはあとでクローゼットからまとめて消せます。</p>
+          {error && <p className="notice">{error}</p>}
+        </div>
       </div>
     )
 
@@ -81,9 +85,7 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
 
   return (
     <div className="stack">
-      <div className="logo">Today's Outfit</div>
-      <div className="ornament">✦</div>
-      <h1 className="date">{formatDate(today())}</h1>
+      <PageHeader title="Today's Outfit" sub={formatDate(today())} />
       {outfit && <WeatherCard w={outfit.weather} />}
 
       {status === 'thinking' ? (

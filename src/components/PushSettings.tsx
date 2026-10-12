@@ -32,7 +32,7 @@ export default function PushSettings() {
 
   return (
     <div className="card stack">
-      <div><strong>毎朝の通知</strong></div>
+      <h2 className="section-title">毎朝の通知</h2>
       {!pushSupported() ? (
         <p className="muted small">
           この画面では通知を使えません。iPhone はホーム画面に追加したアプリから開くと設定できます（iOS 16.4 以降）。

@@ -29,22 +29,36 @@ class HttpError extends Error {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const SYSTEM = `あなたは天気と手持ちの服から、その日の服装を1セットだけ選ぶスタイリストです。
-必ず「手持ちの服」一覧にある id だけを使ってください。一覧にない服を勧めてはいけません。
+const SYSTEM = `あなたはファッション誌でも活躍するパーソナルスタイリストです。
+本人の手持ちの服だけを使って、今日の天気にきちんと合い、なおかつ「おしゃれ」と言われる服装を1セット組みます。
 
-選び方:
-- 構成は「tops + bottoms」または「onepiece」を基本にし、shoes が登録されていれば1足選ぶ。outer は気温や風・雨で必要なときだけ。accessory は合うものがあれば任意。
-- 最高・最低気温だけでなく、体感温度・時間ごとの気温差・風・降水確率を考える。朝晩と日中の差が大きい日は脱ぎ着しやすい重ね方にする。
-- 降水確率が高い日は rain_ok の服と靴を優先する。
-- 最近着た服、特にトップスやワンピースは数日あけるようにする。
-- 色の組み合わせとフォーマル度をそろえる。本人の好み・予定のメモがあれば最優先する。
-- 「過去の評価」から、本人の好みや暑がり・寒がりの傾向を読み取って反映する。👎 の理由があれば同じ失敗を繰り返さない。
-- 「今日すでに出した案」がある場合は、それとはっきり違う組み合わせにする。
+## 必ず守ること
+- 「手持ちの服」一覧にある id だけを使う。一覧にない服を勧めない。
+- 構成は「tops + bottoms」か「onepiece」を軸にする。shoes が登録されていれば必ず1足選ぶ。
+- bottoms・shoes・outer はそれぞれ1点まで。tops は重ね着（シャツの上にニットなど）のときだけ2点まで。accessory は合うものだけ（傘は雨の日のみ）。
 
-返す内容:
+## 天気の読み方
+- 体感の最高気温を目安にする: 25°以上は warmth 1〜2 中心／20〜24° は 2〜3／15〜19° は 3 に軽い羽織り／10〜14° は 3〜4 に outer／9°以下は 4〜5 に厚手の outer。
+- 朝晩と日中の差が7°以上なら、脱ぎ着しやすい重ね方にする（羽織りを脱いでも成立するコーデに）。
+- 降水確率50%以上なら rain_ok の靴を優先し、白い布やスエード、引きずる丈は避ける。
+- 風が強い日（8m/s以上）は、広がる裾や薄すぎる素材を避ける。
+
+## おしゃれに見せる考え方
+1. 色: 全身で3色以内が目安。ベースカラー（紺・黒・グレー・白・ベージュ・茶など）を中心に、差し色は1点だけ。色数を絞る／トーンをそろえる／同系色でグラデーションにする、のどれかで統一感を出す。柄物は1点まで。
+2. シルエット: 上下のボリュームにメリハリをつける（上がゆったりなら下はすっきり、上がコンパクトなら下はワイド）。Iライン・Aライン・Yラインのどれを作るかを決める。
+3. テイスト: きれいめとカジュアルのバランスを取る（大人っぽく見せるなら きれいめ7：カジュアル3）。formality が2以上離れた服は、意図した外しでない限り混ぜない。
+4. 素材と季節感: 季節に合った素材を選び、質感の対比（ニット×レザー、コットン×ウールなど）で奥行きを出す。
+5. 足元と小物: 靴は全体のテイストとフォーマル度に合わせ、小物と色をつなげると洗練されて見える。
+6. 本人の好み・予定のメモを最優先する。曜日も考える（平日は通勤・仕事、休日はリラックスした装いになりやすい）。
+7. 「過去の評価」で 👍 の傾向は伸ばし、👎 の理由（暑い・寒い・色など）は繰り返さない。暑がり・寒がりの傾向は気温の目安を補正する。
+8. 最近着た服、特にトップスやワンピースは数日あける。「今日すでに出した案」とは、色かテイストがはっきり違う方向にする。
+
+決める前に、色・シルエット・天気・構成のルールを満たしているかを自分で確認してください。
+
+## 返す内容
 - item_ids: 選んだ服の id
-- comment: なぜこの組み合わせにしたかを、天気と結びつけて2〜3文で。親しみやすい口調で。
-- tips: 傘・羽織りもの・脱ぎ着など、今日気をつけることを1文で。
+- comment: 2〜3文。どこがおしゃれのポイントか（色・シルエット・素材のどれか）と、天気にどう合うかを、具体的に親しみやすい口調で。
+- tips: 1文。雨や寒暖差など天気の注意が必要な日はそれを、そうでなければ着こなしのひと工夫（袖をまくる、前だけタックイン、裾をロールアップなど）を。
 手持ちの服が足りずに組めない場合は、組める範囲で選び、足りないものを comment で伝えてください。`;
 
 const SCHEMA = {
@@ -116,7 +130,9 @@ async function fetchWeather(p: Profile, date: string) {
   };
 }
 
-async function askClaude(prompt: string): Promise<{ item_ids: string[]; comment: string; tips: string }> {
+type Answer = { item_ids: string[]; comment: string; tips: string };
+
+async function askClaude(messages: Anthropic.Beta.BetaMessageParam[]): Promise<Answer> {
   let res: Anthropic.Beta.BetaMessage;
   try {
     res = await anthropic.beta.messages.create({
@@ -126,7 +142,7 @@ async function askClaude(prompt: string): Promise<{ item_ids: string[]; comment:
       fallbacks: "default", // 安全フィルタで断られたら別モデルで答え直す
       system: SYSTEM,
       output_config: { effort: "high", format: { type: "json_schema", schema: SCHEMA } },
-      messages: [{ role: "user", content: prompt }],
+      messages,
     });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) throw new HttpError(429, "AIが混み合っています。少し待ってから試してください");
@@ -176,7 +192,8 @@ async function generateOutfit(supabase: SupabaseClient, userId: string, date: st
 
   const weather = await fetchWeather(profile, date);
 
-  const prompt = `# 今日（${date}）の天気 — ${weather.place}
+  const weekday = "日月火水木金土"[new Date(`${date}T00:00:00Z`).getUTCDay()];
+  const prompt = `# 今日（${date}・${weekday}曜日）の天気 — ${weather.place}
 ${JSON.stringify(weather, null, 1)}
 （気温は℃、風速は m/s、降水確率は %）
 
@@ -195,7 +212,18 @@ ${ratedLines.join("\n") || "（まだなし）"}
 # 今日すでに出した案
 ${todayLines.join("\n") || "（なし）"}`;
 
-  const answer = await askClaude(prompt);
+  // 組み合わせの決まりを破っていたら、理由を伝えて1回だけ組み直してもらう
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: prompt }];
+  let answer = await askClaude(messages);
+  const problems = checkOutfit(answer.item_ids, items);
+  if (problems.length > 0) {
+    console.warn("outfit retry", problems);
+    messages.push(
+      { role: "assistant", content: JSON.stringify(answer) },
+      { role: "user", content: `この組み合わせには次の問題があります。直した組み合わせを返してください。\n${problems.map((p) => `- ${p}`).join("\n")}` },
+    );
+    answer = await askClaude(messages).catch(() => answer); // 組み直しに失敗したら最初の案を使う
+  }
   const itemIds = [...new Set(answer.item_ids)].filter((id) => names.has(id));
   if (itemIds.length === 0) throw new HttpError(502, "AIが服を選べませんでした。もう一度試してください");
 
@@ -206,6 +234,26 @@ ${todayLines.join("\n") || "（なし）"}`;
     .single();
   if (error) throw error;
   return outfit as Outfit;
+}
+
+/** 構成の決まり（システムプロンプトの「必ず守ること」）を破っていないか確かめ、問題を文で返す */
+function checkOutfit(ids: string[], items: Item[]): string[] {
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const chosen = [...new Set(ids)].map((id) => byId.get(id)).filter((i): i is Item => !!i);
+  const count = (c: string) => chosen.filter((i) => i.category === c).length;
+  const has = (c: string) => items.some((i) => i.category === c);
+  const problems: string[] = [];
+
+  if (chosen.length < ids.length) problems.push("一覧にない id が含まれています");
+  const core = (count("tops") > 0 && count("bottoms") > 0) || count("onepiece") > 0;
+  const canMakeCore = (has("tops") && has("bottoms")) || has("onepiece");
+  if (!core && canMakeCore) problems.push("「tops + bottoms」か「onepiece」がそろっていません");
+  if (count("shoes") === 0 && has("shoes")) problems.push("靴が選ばれていません");
+  for (const [c, label] of [["bottoms", "ボトムス"], ["shoes", "靴"], ["outer", "アウター"], ["onepiece", "ワンピース"]]) {
+    if (count(c) > 1) problems.push(`${label}が${count(c)}点あります（1点まで）`);
+  }
+  if (count("tops") > 2) problems.push(`トップスが${count("tops")}点あります（重ね着でも2点まで）`);
+  return problems;
 }
 
 // ---- 毎朝の通知 ----

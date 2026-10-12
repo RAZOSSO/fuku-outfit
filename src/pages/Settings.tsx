@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
+import BodySettings from '../components/BodySettings'
 import PageHeader from '../components/PageHeader'
 import PushSettings from '../components/PushSettings'
 import ThemeSettings from '../components/ThemeSettings'
@@ -97,6 +98,8 @@ export default function Settings({ user }: { user: User }) {
 
       <button className="primary" onClick={save}>保存</button>
       {message && <p className="notice">{message}</p>}
+
+      <BodySettings />
 
       <ThemeSettings />
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import Celebration from '../components/Celebration'
+import Mannequin from '../components/Mannequin'
 import PageHeader from '../components/PageHeader'
+import { loadBody } from '../lib/body'
 import { itemsOf, OutfitItems, Rating } from '../components/Outfit'
 import { addSamples } from '../lib/sample'
 import { callFunction, signedUrls, supabase, today } from '../lib/supabase'
@@ -98,6 +100,7 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
         outfit && (
           <div key={outfit.id} className={outfit.worn ? 'card stack look reveal chosen' : 'card stack look reveal'}>
             <div className="look-label">{outfit.worn ? "✦ Today's Choice ✦" : 'Suggestion'}</div>
+            <LookFigure items={chosen} />
             <OutfitItems items={chosen} urls={urls} />
             <p>{outfit.comment}</p>
             {outfit.tips && <p className="tips">💡 {outfit.tips}</p>}
@@ -117,6 +120,19 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
         <button onClick={suggest} disabled={status === 'thinking'}>別の案</button>
       </div>
     </div>
+  )
+}
+
+/** 身長・体型に合わせたマネキンのイラスト。体型を未設定なら設定への案内を添える */
+function LookFigure({ items }: { items: Item[] }) {
+  const [body] = useState(loadBody)
+  return (
+    <figure className="mannequin">
+      <Mannequin items={items} body={body} />
+      <figcaption className="muted small">
+        {body.saved ? `${body.height}cm のイメージ` : '設定で身長と体型を入れると、あなたの背丈に近づきます'}
+      </figcaption>
+    </figure>
   )
 }
 

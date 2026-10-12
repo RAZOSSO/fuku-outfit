@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { CATEGORIES, type Item, type Outfit } from '../lib/types'
 
@@ -26,11 +27,27 @@ export function OutfitItems({ items, urls, small }: { items: Item[]; urls: Recor
   )
 }
 
-/** 👍👎 と、👎 のときの理由。評価は次からの提案に使われる */
+/** 👍👎 と、👎 のときの理由（選ぶか、「その他」で自由に書く）。評価は次からの提案に使われる */
 export function Rating({ outfit, onChange }: { outfit: Outfit; onChange: (o: Outfit) => void }) {
+  const isCustom = !!outfit.feedback && !REASONS.includes(outfit.feedback)
+  const [otherOpen, setOtherOpen] = useState(isCustom)
+  const [text, setText] = useState(isCustom ? outfit.feedback : '')
+  const [saved, setSaved] = useState(false)
+
   async function save(rating: -1 | 1 | null, feedback: string) {
     onChange({ ...outfit, rating, feedback })
     await supabase.from('outfits').update({ rating, feedback }).eq('id', outfit.id)
+  }
+
+  function pick(reason: string) {
+    setOtherOpen(false)
+    setSaved(false)
+    save(-1, outfit.feedback === reason ? '' : reason)
+  }
+
+  async function saveText() {
+    await save(-1, text.trim())
+    setSaved(true)
   }
 
   return (
@@ -46,10 +63,31 @@ export function Rating({ outfit, onChange }: { outfit: Outfit; onChange: (o: Out
       {outfit.rating === -1 && (
         <div className="chips wrap">
           {REASONS.map((r) => (
-            <button key={r} className={outfit.feedback === r ? 'active' : ''} onClick={() => save(-1, outfit.feedback === r ? '' : r)}>
+            <button key={r} className={outfit.feedback === r ? 'active' : ''} onClick={() => pick(r)}>
               {r}
             </button>
           ))}
+          <button className={otherOpen ? 'active' : ''} onClick={() => setOtherOpen(!otherOpen)}>
+            その他（書く）
+          </button>
+        </div>
+      )}
+      {outfit.rating === -1 && otherOpen && (
+        <div className="stack other-reason">
+          <textarea
+            rows={2}
+            maxLength={200}
+            placeholder="例：袖が長くて自転車でじゃまだった／今日は会議でもう少しきちんとしたかった"
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value)
+              setSaved(false)
+            }}
+          />
+          <div className="row between">
+            <span className="muted small">{saved ? '✦ 次からの提案に活かします' : '書いた内容は次からの提案に使われます'}</span>
+            <button className="primary" onClick={saveText} disabled={!text.trim() || text.trim() === outfit.feedback}>保存</button>
+          </div>
         </div>
       )}
     </div>

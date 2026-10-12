@@ -4,7 +4,7 @@ import Mannequin from '../components/Mannequin'
 import PageHeader from '../components/PageHeader'
 import { itemsOf, OutfitItems, Rating } from '../components/Outfit'
 import { loadBody } from '../lib/body'
-import { generateLook, savedLookUrl } from '../lib/look'
+import { generateLook, ownPhotoUrl, savedLookUrl } from '../lib/look'
 import { addSamples } from '../lib/sample'
 import { callFunction, signedUrls, supabase, today } from '../lib/supabase'
 import type { Item, Outfit, Weather } from '../lib/types'
@@ -131,16 +131,19 @@ function LookFigure({ outfitId, items, urls }: { outfitId: string; items: Item[]
   const [photo, setPhoto] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [own, setOwn] = useState<string | null>(null)
 
   useEffect(() => {
     savedLookUrl(outfitId).then(setPhoto) // 前に作ってあれば、すぐ見られるようにしておく
+    ownPhotoUrl().then(setOwn)
   }, [outfitId])
 
-  async function make() {
+  /** wearMe: 登録した本人の全身写真に着せる */
+  async function make(wearMe: boolean) {
     setBusy(true)
     setError('')
     try {
-      setPhoto(await generateLook(outfitId, items, urls, body))
+      setPhoto(await generateLook(outfitId, items, urls, body, wearMe && own ? own : undefined))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -176,14 +179,26 @@ function LookFigure({ outfitId, items, urls }: { outfitId: string; items: Item[]
           <img className="look-photo" src={photo} alt="今日の服を着た人物の写真風イメージ" />
           <figcaption className="muted small">
             AIが作ったイメージです。服の細部は実物と違うことがあります。
-            <button className="link" onClick={make}>作り直す</button>
           </figcaption>
+          <div className="row">
+            {own && <button onClick={() => make(true)}>✦ 自分に着せる</button>}
+            <button onClick={() => make(false)}>{own ? 'モデルで作る' : '作り直す'}</button>
+          </div>
         </figure>
       ) : (
         <div className="look-photo-frame center stack">
           <p className="muted small">提案された服を着た人物の写真風イメージを、AIが作ります。写真を登録した服は、その写真を参考にします。</p>
-          <button className="primary" onClick={make}>✦ 写真風のイメージを作る</button>
-          <p className="muted small">1日6枚まで・人物は設定で選べます</p>
+          {own ? (
+            <>
+              <button className="primary" onClick={() => make(true)}>✦ 自分に着せる</button>
+              <button onClick={() => make(false)}>モデルで作る</button>
+            </>
+          ) : (
+            <button className="primary" onClick={() => make(false)}>✦ 写真風のイメージを作る</button>
+          )}
+          <p className="muted small">
+            1日6枚まで・{own ? '自分の写真は設定で撮り直せます' : '設定で自分の全身写真を登録すると、自分に着せられます'}
+          </p>
         </div>
       )}
       {error && <p className="notice">{error}</p>}

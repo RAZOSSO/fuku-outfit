@@ -19,7 +19,7 @@ src/                         スマホの画面
 supabase/
   migrations/                テーブル・写真置き場・アクセス制限
   functions/analyze-item/    写真や言葉の説明から服の情報を推定（登録時に1回）
-  functions/generate-look/   提案の服装を写真風の画像にする（Cloudflare の FLUX、1人1日6枚まで）
+  functions/generate-look/   提案の服装を写真風の画像にする。本人の全身写真があればその人に着せる（Cloudflare の FLUX、1人1日6枚まで）
   functions/join/            招待コードを確認してアカウントを作る
   functions/suggest-outfit/  天気＋手持ちの服＋過去の評価から1セット提案（1人1日10回まで）
                              ＋5分おきに呼ばれ、通知時刻の人に提案を作ってプッシュ通知

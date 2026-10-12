@@ -1,11 +1,12 @@
 // 提案された服装を、人が実際に着ているような写真風の画像にする。
 //  1. Claude が服の一覧と人物の設定から、画像 AI 向けの英語の指示文を書く
 //  2. Cloudflare Workers AI の FLUX.2 [klein] が画像を作る（登録写真のある服は参考画像として渡す）
-//  3. Storage の <user_id>/looks/<outfit_id>.jpg に保存して、表示用の URL を返す
-// 受け取るのは multipart/form-data: outfit_id, person(JSON), ref_item_ids(JSON), ref_0〜ref_3（512px 未満の JPEG）
+//  3. Storage の <user_id>/looks/<日付>-<outfit_id>-<時刻>.jpg に保存して、表示用の URL を返す
+// 受け取るのは multipart/form-data: outfit_id, person(JSON), ref_item_ids(JSON), ref_0〜ref_3（512px 未満の JPEG）,
+//   person_photo（任意。本人の全身写真。あれば image 0 にして、その人に服を着せる）
 // Secrets: ANTHROPIC_API_KEY, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN
 import Anthropic from "npm:@anthropic-ai/sdk@0.133.0";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { decodeBase64, encodeBase64 } from "jsr:@std/encoding@1/base64";
 
 const MODEL = "claude-opus-5-5";
@@ -37,15 +38,20 @@ Write a single English paragraph (no lists, no quotes, under 900 characters) des
 - The person, exactly as specified (gender presentation, age range, height and build).
 - Every garment in the outfit, worn the way a stylist would wear it, with the exact colors, patterns, materials and lengths given. Do not add garments or accessories that are not listed (a plain belt or simple jewelry is fine only if it suits the look).
 - When a garment has a reference image, describe it as "the <garment> from image N" so the model copies it.
+- When the person is "the person from image 0", write it as an edit of that photo: "Dress the person from image 0 in ...". Keep their face, hairstyle, skin tone, body shape and proportions exactly the same, and change only the clothing and shoes. Still show the full body on the plain backdrop.
 Translate the Japanese garment names faithfully. Output only the prompt.`;
 
-async function writePrompt(items: Item[], person: Person, refs: string[]): Promise<string> {
-  const who = person.presentation === "faceless"
+/** refs は参考画像の順の服 id。ownPhoto のときは image 0 が本人の写真で、服は image 1 から */
+async function writePrompt(items: Item[], person: Person, refs: string[], ownPhoto: boolean): Promise<string> {
+  const who = ownPhoto
+    ? "the person from image 0"
+    : person.presentation === "faceless"
     ? "a person whose face is not shown: frame the photo from the chin down to the shoes"
     : `a ${person.age} ${person.presentation}`;
+  const offset = ownPhoto ? 1 : 0;
   const lines = items.map((i) => {
     const ref = refs.indexOf(i.id);
-    return `- ${i.category}: ${i.name}（色: ${i.color || "不明"}／素材: ${i.material || "不明"}${i.notes ? `／${i.notes}` : ""}）${ref >= 0 ? ` → reference image ${ref}` : ""}`;
+    return `- ${i.category}: ${i.name}（色: ${i.color || "不明"}／素材: ${i.material || "不明"}${i.notes ? `／${i.notes}` : ""}）${ref >= 0 ? ` → reference image ${ref + offset}` : ""}`;
   });
   const res = await anthropic.beta.messages.create({
     model: MODEL,
@@ -106,14 +112,18 @@ async function handle(req: Request): Promise<Response> {
   if (!form) throw new HttpError(400, "送られた内容を読めませんでした");
   const outfitId = String(form.get("outfit_id") ?? "");
   const person = JSON.parse(String(form.get("person") ?? "{}")) as Person;
-  const refIds = JSON.parse(String(form.get("ref_item_ids") ?? "[]")) as string[];
-  const refs = refIds.slice(0, 4).map((_, i) => form.get(`ref_${i}`)).filter((f): f is File => f instanceof File);
+  const personPhoto = form.get("person_photo");
+  const ownPhoto = personPhoto instanceof File;
+  // 画像AIに渡せるのは4枚まで。本人の写真があれば、服は3枚まで
+  const refIds = (JSON.parse(String(form.get("ref_item_ids") ?? "[]")) as string[]).slice(0, ownPhoto ? 3 : 4);
+  const refs = refIds.map((_, i) => form.get(`ref_${i}`)).filter((f): f is File => f instanceof File);
   if (!/^[0-9a-f-]{36}$/.test(outfitId)) throw new HttpError(400, "服装の指定が正しくありません");
 
-  // 1日の枚数の上限（作った画像の数で数える）
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: made } = await supabase.storage.from("clothes").list(`${userId}/looks`, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
-  if ((made ?? []).filter((f) => f.created_at?.startsWith(today)).length >= DAILY_LIMIT) {
+  // 1日の枚数の上限。ファイル名の先頭の日付（UTC）で数える
+  const today = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  const { data: made } = await supabase.storage.from("clothes").list(`${userId}/looks`, { limit: 1000 });
+  const files = made ?? [];
+  if (files.filter((f) => f.name.startsWith(`${today}-`)).length >= DAILY_LIMIT) {
     throw new HttpError(429, `写真風のイメージは1日${DAILY_LIMIT}枚までです`);
   }
 
@@ -125,7 +135,7 @@ async function handle(req: Request): Promise<Response> {
 
   let prompt: string;
   try {
-    prompt = await writePrompt(items, person, refIds.slice(0, refs.length));
+    prompt = await writePrompt(items, person, refIds.slice(0, refs.length), ownPhoto);
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) throw new HttpError(429, "AIが混み合っています。少し待ってから試してください");
     if (e instanceof Anthropic.APIError) {
@@ -134,12 +144,12 @@ async function handle(req: Request): Promise<Response> {
     }
     throw e;
   }
-  const image = await generateImage(prompt, refs);
+  const image = await generateImage(prompt, ownPhoto ? [personPhoto, ...refs] : refs);
 
-  // 同じ服装の画像は上書きする（Storage の権限は追加と削除だけなので、消してから入れる）
-  const path = `${userId}/looks/${outfitId}.jpg`;
-  await supabase.storage.from("clothes").remove([path]);
+  // 作り直しも1日の枚数に数えるため、上書きせず毎回別の名前で保存する
+  const path = `${userId}/looks/${today}-${outfitId}-${Date.now()}.jpg`;
   const { error } = await supabase.storage.from("clothes").upload(path, image, { contentType: "image/jpeg" });
+  await cleanUp(supabase, userId, files, today);
   if (error) {
     console.error("upload failed", error);
     // 保存できなくても、作った画像はそのまま見せる
@@ -147,6 +157,19 @@ async function handle(req: Request): Promise<Response> {
   }
   const { data: signed } = await supabase.storage.from("clothes").createSignedUrl(path, 60 * 60);
   return json({ url: signed?.signedUrl, saved: true });
+}
+
+/** 前の日までの画像は、服装ごとに最新の1枚だけ残して消す（今日の分は枚数を数えるので残す） */
+async function cleanUp(supabase: SupabaseClient, userId: string, files: { name: string }[], today: string) {
+  const latest = new Map<string, string>();
+  const old = files.filter((f) => !f.name.startsWith(`${today}-`));
+  for (const f of old) {
+    const outfit = f.name.match(/[0-9a-f-]{36}/)?.[0] ?? f.name;
+    if ((latest.get(outfit) ?? "") < f.name) latest.set(outfit, f.name);
+  }
+  const keep = new Set(latest.values());
+  const remove = old.filter((f) => !keep.has(f.name)).map((f) => `${userId}/looks/${f.name}`);
+  if (remove.length > 0) await supabase.storage.from("clothes").remove(remove);
 }
 
 Deno.serve(async (req) => {

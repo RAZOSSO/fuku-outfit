@@ -76,6 +76,7 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
 
   return (
     <div className="stack">
+      <div className="logo">Today's Outfit</div>
       <h1 className="date">{formatDate(today())}</h1>
       {outfit && <WeatherCard w={outfit.weather} />}
 

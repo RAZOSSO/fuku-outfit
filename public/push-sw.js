@@ -2,7 +2,7 @@
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {}
   event.waitUntil(
-    self.registration.showNotification(data.title || 'きょうの服', {
+    self.registration.showNotification(data.title || "Today's Outfit", {
       body: data.body || '今日の服装を用意しました',
       icon: 'pwa-192x192.png',
       badge: 'pwa-64x64.png',

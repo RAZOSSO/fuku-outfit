@@ -13,8 +13,8 @@ export default defineConfig({
       workbox: { importScripts: ['push-sw.js'] }, // プッシュ通知の受け取り処理
       includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'きょうの服',
-        short_name: 'きょうの服',
+        name: "Today's Outfit",
+        short_name: "Today's Outfit",
         description: '今日の天気と手持ちの服から、服装を1つ提案します',
         lang: 'ja',
         display: 'standalone',

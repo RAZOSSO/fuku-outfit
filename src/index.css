@@ -98,6 +98,9 @@ label.check input { width: auto; margin: 0; }
 
 .auth { max-width: 360px; margin: 0 auto; padding: 64px 16px; text-align: center; }
 .auth h1 { font-size: 1.8rem; margin-bottom: 8px; }
+/* アプリ名の筆記体ロゴ（フォントは index.html で読み込む） */
+.logo { font-family: 'Great Vibes', 'Snell Roundhand', 'Segoe Script', cursive; font-size: 2.2rem; font-weight: normal; line-height: 1.2; color: var(--accent); }
+.auth h1.logo { font-size: 3rem; }
 
 .date { font-size: 1.1rem; }
 .weather-main { display: flex; justify-content: space-between; align-items: center; }

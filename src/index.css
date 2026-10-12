@@ -15,9 +15,6 @@
   --shadow: 0 1px 2px rgba(74, 56, 22, 0.06), 0 8px 24px -12px rgba(74, 56, 22, 0.25);
   --warm: #b4563f;
   --cool: #3f6c9a;
-  --mannequin-1: #f3eadb;
-  --mannequin-2: #e2d3b8;
-  --garment-outline: rgba(40, 30, 15, 0.38);
   --serif: 'Cormorant Garamond', 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
   --mincho: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
   --script: 'Great Vibes', 'Snell Roundhand', 'Segoe Script', cursive;
@@ -44,9 +41,6 @@
     --warm: #e39a84;
     --cool: #8fb6dd;
     --foil-ink: var(--foil);
-    --mannequin-1: #4a4136;
-    --mannequin-2: #332c24;
-    --garment-outline: rgba(240, 225, 190, 0.4);
   }
 }
 :root[data-theme="dark"] {
@@ -62,9 +56,6 @@
   --warm: #e39a84;
   --cool: #8fb6dd;
   --foil-ink: var(--foil);
-  --mannequin-1: #4a4136;
-  --mannequin-2: #332c24;
-  --garment-outline: rgba(240, 225, 190, 0.4);
   color-scheme: dark;
 }
 :root[data-theme="light"] { color-scheme: light; }
@@ -475,30 +466,8 @@ label.check input { width: auto; margin: 0; accent-color: var(--gold); }
 .theme-label { font-family: var(--mincho); font-weight: 700; letter-spacing: 0.1em; }
 .theme-option.active .theme-label { color: var(--gold); }
 
-/* ---- マネキンのイラスト ---- */
-.mannequin {
-  margin: 0;
-  padding: 12px 0 8px;
-  text-align: center;
-  border-radius: 16px;
-  background: radial-gradient(60% 70% at 50% 40%, color-mix(in srgb, var(--gold-soft) 40%, transparent), transparent 75%);
-}
-.mannequin-svg { display: block; height: 340px; width: auto; margin: 0 auto; overflow: visible; }
-.mannequin figcaption { margin-top: 4px; letter-spacing: 0.04em; }
-.mannequin.mini { padding: 4px 0; }
-.mannequin.mini .mannequin-svg { height: 180px; }
-.body-settings { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; }
 
-/* イラスト／写真風の切り替え */
-.segmented {
-  display: grid; grid-template-columns: 1fr 1fr;
-  padding: 3px; gap: 3px;
-  border: 1px solid var(--border); border-radius: 999px;
-  background: var(--bg);
-  width: min(260px, 100%); margin: 0 auto;
-}
-.segmented button { border: none; padding: 6px 0; font-family: var(--mincho); font-size: 0.85rem; letter-spacing: 0.1em; background: none; }
-.segmented button.active { background: var(--foil); color: var(--foil-text); font-weight: 700; }
+/* 写真風イメージ */
 .look-photo-frame { margin: 0; border-radius: 16px; min-height: 200px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
 .look-photo-frame.center { padding: 24px 16px; border: 1px dashed var(--gold-soft); }
 .look-photo {

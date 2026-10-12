@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import Celebration from '../components/Celebration'
-import Mannequin from '../components/Mannequin'
 import PageHeader from '../components/PageHeader'
 import { itemsOf, OutfitItems, Rating } from '../components/Outfit'
 import { loadBody } from '../lib/body'
@@ -124,10 +123,9 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
   )
 }
 
-/** 装いのイメージ。すぐ出るマネキンのイラストと、ボタンで作る写真風の画像を切り替える */
+/** 装いの写真風イメージ。ボタンを押したときだけ作る（前に作ってあれば表示する） */
 function LookFigure({ outfitId, items, urls }: { outfitId: string; items: Item[]; urls: Record<string, string> }) {
   const [body] = useState(loadBody)
-  const [mode, setMode] = useState<'illust' | 'photo'>('illust')
   const [photo, setPhoto] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -152,23 +150,7 @@ function LookFigure({ outfitId, items, urls }: { outfitId: string; items: Item[]
 
   return (
     <div className="stack look-figure">
-      <div className="segmented" role="tablist">
-        <button role="tab" aria-selected={mode === 'illust'} className={mode === 'illust' ? 'active' : ''} onClick={() => setMode('illust')}>
-          イラスト
-        </button>
-        <button role="tab" aria-selected={mode === 'photo'} className={mode === 'photo' ? 'active' : ''} onClick={() => setMode('photo')}>
-          写真風
-        </button>
-      </div>
-
-      {mode === 'illust' ? (
-        <figure className="mannequin">
-          <Mannequin items={items} body={body} />
-          <figcaption className="muted small">
-            {body.saved ? `${body.height}cm のイメージ` : '設定で身長と体型を入れると、あなたの背丈に近づきます'}
-          </figcaption>
-        </figure>
-      ) : busy ? (
+      {busy ? (
         <div className="look-photo-frame center muted">
           <div className="spinner" />
           <div className="thinking-title">Developing…</div>

@@ -62,6 +62,7 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
     if (!outfit) return
     const r = e.currentTarget.getBoundingClientRect()
     setCelebrate({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+    if (outfit.worn) return // 決定済みなら演出だけもう一度
     await supabase.from('outfits').update({ worn: false }).eq('date', outfit.date).neq('id', outfit.id)
     await supabase.from('outfits').update({ worn: true }).eq('id', outfit.id)
     setOutfit({ ...outfit, worn: true })
@@ -114,8 +115,8 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
       {celebrate && <Celebration origin={celebrate} onDone={endCelebration} />}
 
       <div className="row">
-        <button className="primary" onClick={wear} disabled={!outfit || outfit.worn || status === 'thinking'}>
-          {outfit?.worn ? '✦ この装いに決定' : 'この装いに決める'}
+        <button className="primary" onClick={wear} disabled={!outfit || status === 'thinking'}>
+          {outfit?.worn ? '✦ 決定済み' : 'この装いに決める'}
         </button>
         <button onClick={suggest} disabled={status === 'thinking'}>別の案</button>
       </div>

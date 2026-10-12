@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { callFunction, shrinkImage, signedUrls, supabase } from '../lib/supabase'
+import { addSamples, removeSamples, SAMPLE_NOTE } from '../lib/sample'
 import { CATEGORIES, type Category, type Item, type ItemDraft } from '../lib/types'
 
 type Editing = { id?: string; draft: ItemDraft; previewUrl?: string }
@@ -65,6 +66,18 @@ export default function Closet() {
     load()
   }
 
+  async function run(label: string, action: () => Promise<void>) {
+    setError('')
+    setBusy(label)
+    try {
+      await action()
+      await load()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    setBusy('')
+  }
+
   if (editing)
     return (
       <ItemForm
@@ -78,6 +91,7 @@ export default function Closet() {
     )
 
   const shown = filter === 'all' ? items : items.filter((i) => i.category === filter)
+  const sampleCount = items.filter((i) => i.notes === SAMPLE_NOTE).length
 
   return (
     <div className="stack">
@@ -103,6 +117,22 @@ export default function Closet() {
         </div>
       )}
       {error && <p className="notice">{error}</p>}
+
+      {items.length === 0 && !busy && (
+        <div className="card stack">
+          <p>写真を撮る前に、サンプルの服でどんな提案になるか試せます。</p>
+          <button onClick={() => run('サンプルを入れています…', addSamples)}>サンプルの服を入れて試す</button>
+        </div>
+      )}
+      {sampleCount > 0 && (
+        <button
+          className="link"
+          disabled={!!busy}
+          onClick={() => confirm(`サンプルの服${sampleCount}点をまとめて消しますか？`) && run('サンプルを消しています…', removeSamples)}
+        >
+          サンプルの服（{sampleCount}点）をまとめて消す
+        </button>
+      )}
 
       <div className="chips">
         <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>すべて</button>

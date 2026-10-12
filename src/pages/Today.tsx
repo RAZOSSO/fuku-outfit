@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { itemsOf, OutfitItems, Rating } from '../components/Outfit'
+import { addSamples } from '../lib/sample'
 import { callFunction, signedUrls, supabase, today } from '../lib/supabase'
 import type { Item, Outfit, Weather } from '../lib/types'
 
@@ -9,6 +10,7 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<'loading' | 'thinking' | 'ready' | 'empty'>('loading')
   const [error, setError] = useState('')
+  const [reload, setReload] = useState(0)
 
   const suggest = useCallback(async () => {
     setStatus('thinking')
@@ -38,7 +40,17 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
         await suggest() // 朝はじめて開いたときは自動で提案する
       }
     })()
-  }, [suggest])
+  }, [suggest, reload])
+
+  async function trySamples() {
+    setStatus('loading')
+    try {
+      await addSamples()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    setReload((n) => n + 1)
+  }
 
   async function wear() {
     if (!outfit) return
@@ -54,6 +66,9 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
         <p>まずは手持ちの服を登録しましょう。</p>
         <p className="muted">トップス・ボトムス・靴が数点ずつあると提案できます。</p>
         <button className="primary" onClick={onGoCloset}>クローゼットへ</button>
+        <button onClick={trySamples}>サンプルの服で試してみる</button>
+        <p className="muted small">サンプルはあとでクローゼットからまとめて消せます。</p>
+        {error && <p className="notice">{error}</p>}
       </div>
     )
 

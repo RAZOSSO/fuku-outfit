@@ -252,7 +252,7 @@ async function runMorning() {
     // 先に送信済みにして、AI が失敗しても5分おきに何度もやり直さない（費用を増やさない）
     await admin.from("push_subscriptions").update({ last_sent_date: date }).in("endpoint", subs.map((s) => s.endpoint));
 
-    let payload = { title: "きょうの服", body: "今日の服装を見てみましょう" };
+    let payload = { title: "Today's Outfit", body: "今日の服装を見てみましょう" };
     try {
       const { data: existing } = await admin.from("outfits").select("*").eq("user_id", userId).eq("date", date)
         .order("created_at", { ascending: false }).limit(1);
@@ -260,7 +260,7 @@ async function runMorning() {
       const { data: items } = await admin.from("items").select("id, name").in("id", outfit.item_ids);
       const w = outfit.weather;
       payload = {
-        title: `きょうの服　${w.summary} ${Math.round(w.max)}° / ${Math.round(w.min)}°`,
+        title: `Today's Outfit　${w.summary} ${Math.round(w.max)}° / ${Math.round(w.min)}°`,
         body: [(items ?? []).map((i) => i.name).join("・"), outfit.tips].filter(Boolean).join("\n"),
       };
     } catch (e) {

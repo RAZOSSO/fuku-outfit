@@ -12,6 +12,8 @@ export default function Closet() {
   const [editing, setEditing] = useState<Editing | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [describing, setDescribing] = useState(false)
+  const [description, setDescription] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
 
   async function load() {
@@ -37,6 +39,20 @@ export default function Closet() {
       setBusy('AIが服を見ています…')
       const guess = await callFunction<Omit<ItemDraft, 'photo_path'>>('analyze-item', { photo_path: path })
       setEditing({ draft: { ...guess, photo_path: path }, previewUrl: URL.createObjectURL(blob) })
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    setBusy('')
+  }
+
+  async function onDescribe() {
+    setError('')
+    setBusy('AIが服の説明を読んでいます…')
+    try {
+      const guess = await callFunction<Omit<ItemDraft, 'photo_path'>>('analyze-item', { description })
+      setEditing({ draft: { ...guess, photo_path: null } })
+      setDescribing(false)
+      setDescription('')
     } catch (e) {
       setError((e as Error).message)
     }
@@ -95,10 +111,29 @@ export default function Closet() {
 
   return (
     <div className="stack">
-      <div className="row between">
-        <h1>クローゼット <span className="muted small">{items.length}点</span></h1>
-        <button className="primary" onClick={() => fileInput.current?.click()} disabled={!!busy}>＋ 写真で追加</button>
+      <h1>クローゼット <span className="muted small">{items.length}点</span></h1>
+      <div className="row">
+        <button className="primary" onClick={() => fileInput.current?.click()} disabled={!!busy}>📷 写真で追加</button>
+        <button onClick={() => setDescribing(!describing)} disabled={!!busy}>✏️ 言葉で追加</button>
       </div>
+      {describing && !busy && (
+        <div className="card stack">
+          <label>
+            どんな服ですか？
+            <textarea
+              rows={2}
+              maxLength={500}
+              placeholder="例：去年買った紺のダッフルコート。厚手でかなり暖かい"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </label>
+          <div className="row">
+            <button className="primary" onClick={onDescribe} disabled={!description.trim()}>AIに読み取ってもらう</button>
+            <button onClick={() => setDescribing(false)}>やめる</button>
+          </div>
+        </div>
+      )}
       <input
         ref={fileInput}
         type="file"

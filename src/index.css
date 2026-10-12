@@ -488,3 +488,26 @@ label.check input { width: auto; margin: 0; accent-color: var(--gold); }
 .mannequin.mini { padding: 4px 0; }
 .mannequin.mini .mannequin-svg { height: 180px; }
 .body-settings { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; }
+
+/* イラスト／写真風の切り替え */
+.segmented {
+  display: grid; grid-template-columns: 1fr 1fr;
+  padding: 3px; gap: 3px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg);
+  width: min(260px, 100%); margin: 0 auto;
+}
+.segmented button { border: none; padding: 6px 0; font-family: var(--mincho); font-size: 0.85rem; letter-spacing: 0.1em; background: none; }
+.segmented button.active { background: var(--foil); color: var(--foil-text); font-weight: 700; }
+.look-photo-frame { margin: 0; border-radius: 16px; min-height: 200px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.look-photo-frame.center { padding: 24px 16px; border: 1px dashed var(--gold-soft); }
+.look-photo {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--foil) border-box;
+  padding: 3px;
+  animation: reveal 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.look-photo-frame figcaption { text-align: center; }
+.look-photo-frame figcaption .link { padding: 0 0 0 6px; font-size: inherit; }

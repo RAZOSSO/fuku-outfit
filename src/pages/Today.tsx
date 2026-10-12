@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import Celebration from '../components/Celebration'
 import Mannequin from '../components/Mannequin'
 import PageHeader from '../components/PageHeader'
-import { loadBody } from '../lib/body'
 import { itemsOf, OutfitItems, Rating } from '../components/Outfit'
+import { loadBody } from '../lib/body'
+import { generateLook, savedLookUrl } from '../lib/look'
 import { addSamples } from '../lib/sample'
 import { callFunction, signedUrls, supabase, today } from '../lib/supabase'
 import type { Item, Outfit, Weather } from '../lib/types'
@@ -100,7 +101,7 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
         outfit && (
           <div key={outfit.id} className={outfit.worn ? 'card stack look reveal chosen' : 'card stack look reveal'}>
             <div className="look-label">{outfit.worn ? "✦ Today's Choice ✦" : 'Suggestion'}</div>
-            <LookFigure items={chosen} />
+            <LookFigure outfitId={outfit.id} items={chosen} urls={urls} />
             <OutfitItems items={chosen} urls={urls} />
             <p>{outfit.comment}</p>
             {outfit.tips && <p className="tips">💡 {outfit.tips}</p>}
@@ -123,16 +124,70 @@ export default function Today({ onGoCloset }: { onGoCloset: () => void }) {
   )
 }
 
-/** 身長・体型に合わせたマネキンのイラスト。体型を未設定なら設定への案内を添える */
-function LookFigure({ items }: { items: Item[] }) {
+/** 装いのイメージ。すぐ出るマネキンのイラストと、ボタンで作る写真風の画像を切り替える */
+function LookFigure({ outfitId, items, urls }: { outfitId: string; items: Item[]; urls: Record<string, string> }) {
   const [body] = useState(loadBody)
+  const [mode, setMode] = useState<'illust' | 'photo'>('illust')
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    savedLookUrl(outfitId).then(setPhoto) // 前に作ってあれば、すぐ見られるようにしておく
+  }, [outfitId])
+
+  async function make() {
+    setBusy(true)
+    setError('')
+    try {
+      setPhoto(await generateLook(outfitId, items, urls, body))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    setBusy(false)
+  }
+
   return (
-    <figure className="mannequin">
-      <Mannequin items={items} body={body} />
-      <figcaption className="muted small">
-        {body.saved ? `${body.height}cm のイメージ` : '設定で身長と体型を入れると、あなたの背丈に近づきます'}
-      </figcaption>
-    </figure>
+    <div className="stack look-figure">
+      <div className="segmented" role="tablist">
+        <button role="tab" aria-selected={mode === 'illust'} className={mode === 'illust' ? 'active' : ''} onClick={() => setMode('illust')}>
+          イラスト
+        </button>
+        <button role="tab" aria-selected={mode === 'photo'} className={mode === 'photo' ? 'active' : ''} onClick={() => setMode('photo')}>
+          写真風
+        </button>
+      </div>
+
+      {mode === 'illust' ? (
+        <figure className="mannequin">
+          <Mannequin items={items} body={body} />
+          <figcaption className="muted small">
+            {body.saved ? `${body.height}cm のイメージ` : '設定で身長と体型を入れると、あなたの背丈に近づきます'}
+          </figcaption>
+        </figure>
+      ) : busy ? (
+        <div className="look-photo-frame center muted">
+          <div className="spinner" />
+          <div className="thinking-title">Developing…</div>
+          写真風のイメージを作っています（10〜30秒）
+        </div>
+      ) : photo ? (
+        <figure className="look-photo-frame">
+          <img className="look-photo" src={photo} alt="今日の服を着た人物の写真風イメージ" />
+          <figcaption className="muted small">
+            AIが作ったイメージです。服の細部は実物と違うことがあります。
+            <button className="link" onClick={make}>作り直す</button>
+          </figcaption>
+        </figure>
+      ) : (
+        <div className="look-photo-frame center stack">
+          <p className="muted small">提案された服を着た人物の写真風イメージを、AIが作ります。写真を登録した服は、その写真を参考にします。</p>
+          <button className="primary" onClick={make}>✦ 写真風のイメージを作る</button>
+          <p className="muted small">1日6枚まで・人物は設定で選べます</p>
+        </div>
+      )}
+      {error && <p className="notice">{error}</p>}
+    </div>
   )
 }
 

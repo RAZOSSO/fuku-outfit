@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 export const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 /** Edge Function を呼び、エラー時はサーバーのメッセージを投げる */
-export async function callFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
+export async function callFunction<T>(name: string, body: Record<string, unknown> | FormData): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body })
   if (error) {
     // 関数がエラーを返したときだけ context が Response になる。通信自体の失敗では Error などが入る
@@ -34,7 +34,7 @@ export async function signedUrls(paths: string[]): Promise<Record<string, string
 }
 
 /** 写真を長辺 1024px の JPEG に縮小する（保存容量と AI の費用を抑える） */
-export async function shrinkImage(file: File, maxSize = 1024): Promise<Blob> {
+export async function shrinkImage(file: Blob, maxSize = 1024): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height))
   const canvas = document.createElement('canvas')

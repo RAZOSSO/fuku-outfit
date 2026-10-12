@@ -18,7 +18,8 @@ src/                         スマホの画面
   pages/Settings.tsx         地域・好みのメモ・毎朝の通知・引き継ぎコード
 supabase/
   migrations/                テーブル・写真置き場・アクセス制限
-  functions/analyze-item/    写真から服の情報を推定（登録時に1回）
+  functions/analyze-item/    写真や言葉の説明から服の情報を推定（登録時に1回）
+  functions/generate-look/   提案の服装を写真風の画像にする（Cloudflare の FLUX、1人1日6枚まで）
   functions/join/            招待コードを確認してアカウントを作る
   functions/suggest-outfit/  天気＋手持ちの服＋過去の評価から1セット提案（1人1日10回まで）
                              ＋5分おきに呼ばれ、通知時刻の人に提案を作ってプッシュ通知
@@ -40,6 +41,7 @@ public/push-sw.js            プッシュ通知を受け取る処理
 | `INVITE_CODE` | 招待コード（自分で決める。例：`FUKU-7Q2X-MORNING`） |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | プッシュ通知の鍵（`npx web-push generate-vapid-keys` で作る。公開鍵は `src/lib/push.ts` にも書く） |
 | `CRON_SECRET` | 毎朝の通知用の合言葉（ランダムな文字列） |
+| `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` | 写真風イメージ用（Cloudflare Workers AI。無料枠は1日10,000 Neurons、日本時間9時にリセット）。トークンは「Workers AI」の権限で作る |
 
 ### 3. Edge Functions を作る（Edge Functions → Deploy a new function → Via Editor）
 | 関数名 | 中身 | Verify JWT |
@@ -47,6 +49,7 @@ public/push-sw.js            プッシュ通知を受け取る処理
 | `join` | `supabase/functions/join/index.ts` | **オフ**（ログイン前に呼ぶため） |
 | `analyze-item` | `supabase/functions/analyze-item/index.ts` | オン |
 | `suggest-outfit` | `supabase/functions/suggest-outfit/index.ts` | **オフ**（毎朝の通知で pg_cron から呼ぶため。ログイン確認はコード内で行う） |
+| `generate-look` | `supabase/functions/generate-look/index.ts` | オン |
 
 ### 4. 画面を動かす（ローカル）
 ```bash

@@ -2,6 +2,7 @@ import type { User } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import PushSettings from '../components/PushSettings'
+import ThemeSettings from '../components/ThemeSettings'
 import TransferCode from '../components/TransferCode'
 import { searchPlaces, type Place } from '../lib/geocode'
 import { supabase } from '../lib/supabase'
@@ -96,6 +97,8 @@ export default function Settings({ user }: { user: User }) {
 
       <button className="primary" onClick={save}>保存</button>
       {message && <p className="notice">{message}</p>}
+
+      <ThemeSettings />
 
       <PushSettings />
 

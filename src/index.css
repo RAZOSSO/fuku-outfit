@@ -26,8 +26,9 @@
   background: var(--bg);
 }
 
+/* 暗い配色。設定が「自動」なら端末に合わせ、「ダーク」なら常に、「ライト」なら使わない（data-theme は src/lib/theme.ts） */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0e0c0a;
     --bg-deep: #070605;
     --card: #191512;
@@ -42,6 +43,22 @@
     --foil-ink: var(--foil);
   }
 }
+:root[data-theme="dark"] {
+  --bg: #0e0c0a;
+  --bg-deep: #070605;
+  --card: #191512;
+  --text: #f2eadb;
+  --muted: #a89a82;
+  --gold: #d6b56b;
+  --gold-soft: #5c4a26;
+  --border: #3a3022;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -14px rgba(0, 0, 0, 0.8);
+  --warm: #e39a84;
+  --cool: #8fb6dd;
+  --foil-ink: var(--foil);
+  color-scheme: dark;
+}
+:root[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 body {
@@ -423,3 +440,28 @@ label.check input { width: auto; margin: 0; accent-color: var(--gold); }
 }
 .auth-card p { margin: 0; }
 .auth > .small { margin-top: 24px; }
+
+/* 配色の選択。見本の円で、明るい・暗い・自動（半分ずつ）を表す */
+.theme-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.theme-option {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 6px 12px;
+  border-radius: 16px;
+  line-height: 1.3;
+  text-align: center;
+}
+.theme-option.active {
+  border: 1px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--foil) border-box;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 15%, transparent);
+}
+.theme-swatch {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--gold);
+  box-shadow: inset 0 0 0 3px var(--card);
+}
+.theme-light .theme-swatch { background: linear-gradient(135deg, #fffcf6 40%, #e6d3a3); }
+.theme-dark .theme-swatch { background: linear-gradient(135deg, #191512 40%, #6b5524); }
+.theme-auto .theme-swatch { background: linear-gradient(135deg, #fffcf6 50%, #191512 50%); }
+.theme-label { font-family: var(--mincho); font-weight: 700; letter-spacing: 0.1em; }
+.theme-option.active .theme-label { color: var(--gold); }

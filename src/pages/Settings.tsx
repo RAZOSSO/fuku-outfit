@@ -2,18 +2,18 @@ import type { User } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import PushSettings from '../components/PushSettings'
 import TransferCode from '../components/TransferCode'
+import { searchPlaces, type Place } from '../lib/geocode'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
 
 const DEFAULT: Profile = { place_name: '東京', latitude: 35.6895, longitude: 139.6917, style_notes: '' }
-
-type Place = { name: string; admin1?: string; latitude: number; longitude: number }
 
 export default function Settings({ user }: { user: User }) {
   const [profile, setProfile] = useState<Profile>(DEFAULT)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Place[]>([])
   const [message, setMessage] = useState('')
+  const [searching, setSearching] = useState(false)
 
   useEffect(() => {
     supabase.from('profiles').select('place_name, latitude, longitude, style_notes').maybeSingle()
@@ -21,10 +21,16 @@ export default function Settings({ user }: { user: User }) {
   }, [])
 
   async function search() {
-    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=ja`)
-    const json = await res.json()
-    setResults(json.results ?? [])
-    if (!json.results) setMessage('見つかりませんでした。市区町村名で試してください')
+    setMessage('')
+    setSearching(true)
+    try {
+      const found = await searchPlaces(query)
+      setResults(found)
+      if (found.length === 0) setMessage('見つかりませんでした。「横浜」「渋谷区」「吉祥寺」のように入れてみてください')
+    } catch {
+      setMessage('検索できませんでした。通信状態を確認してください')
+    }
+    setSearching(false)
   }
 
   function useCurrentLocation() {
@@ -48,8 +54,14 @@ export default function Settings({ user }: { user: User }) {
       <div className="card stack">
         <div>天気を見る地域：<strong>{profile.place_name}</strong></div>
         <div className="row">
-          <input placeholder="市区町村名（例：横浜）" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <button onClick={search} disabled={!query}>検索</button>
+          <input
+            placeholder="市区町村・町名（例：横浜、渋谷区、吉祥寺）"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && query.trim() && search()}
+            enterKeyHint="search"
+          />
+          <button onClick={search} disabled={!query.trim() || searching}>{searching ? '検索中…' : '検索'}</button>
         </div>
         {results.map((p) => (
           <button
@@ -58,9 +70,10 @@ export default function Settings({ user }: { user: User }) {
             onClick={() => {
               setProfile({ ...profile, place_name: p.name, latitude: p.latitude, longitude: p.longitude })
               setResults([])
+              setMessage('地域を選びました。下の「保存」を押すと反映されます')
             }}
           >
-            {p.name} <span className="muted small">{p.admin1}</span>
+            {p.name} {p.detail && <span className="muted small">{p.detail}</span>}
           </button>
         ))}
         <button onClick={useCurrentLocation}>📍 現在地を使う</button>

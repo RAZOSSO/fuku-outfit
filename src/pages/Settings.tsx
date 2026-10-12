@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import PushSettings from '../components/PushSettings'
-import { codeOf, formatCode } from '../lib/account'
+import TransferCode from '../components/TransferCode'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
 
@@ -10,8 +10,6 @@ const DEFAULT: Profile = { place_name: '東京', latitude: 35.6895, longitude: 1
 type Place = { name: string; admin1?: string; latitude: number; longitude: number }
 
 export default function Settings({ user }: { user: User }) {
-  const code = codeOf(user)
-  const [showCode, setShowCode] = useState(false)
   const [profile, setProfile] = useState<Profile>(DEFAULT)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Place[]>([])
@@ -85,23 +83,7 @@ export default function Settings({ user }: { user: User }) {
 
       <PushSettings />
 
-      {code && (
-        <div className="card stack">
-          <div><strong>引き継ぎコード</strong></div>
-          <p className="muted small">
-            機種変更やアプリを消したときに、このコードでデータを戻せます。スクショやメモで保管してください。
-            人に教えると、あなたのクローゼットを見られてしまうので注意してください。
-          </p>
-          {showCode ? (
-            <>
-              <div className="code-display">{formatCode(code)}</div>
-              <button onClick={() => navigator.clipboard?.writeText(formatCode(code)).then(() => setMessage('コピーしました'))}>コピー</button>
-            </>
-          ) : (
-            <button onClick={() => setShowCode(true)}>コードを表示</button>
-          )}
-        </div>
-      )}
+      <TransferCode user={user} />
 
       <button
         className="link"

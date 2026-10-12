@@ -1,6 +1,7 @@
-// 招待コードを確認して、新しい利用者のアカウントを作り、引き継ぎコードを返す。
-// アカウントは「引き継ぎコードがそのまま合い鍵になる」形で作るので、利用者はメールもパスワードも決めなくてよい。
-// ※ この関数はログイン前に呼ばれるので「Verify JWT」はオフにする
+// 引き継ぎコードがそのまま合い鍵になるアカウントを扱う。利用者はメールもパスワードも決めなくてよい。
+//  - { invite_code }      … 招待コードを確認して新しいアカウントを作り、引き継ぎコードを返す（ログイン前）
+//  - { action: "issue" }  … ログイン中の人の引き継ぎコードを新しく作る（データはそのまま。古いコードは使えなくなる）
+// ※ ログイン前に呼ばれるので「Verify JWT」はオフにする（issue のログイン確認はこのコードの中で行う）
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const MAX_USERS = Number(Deno.env.get("MAX_USERS") ?? "5"); // 作れるアカウント数の上限（費用の上限）
@@ -27,16 +28,32 @@ const codeToEmail = (code: string) => `fuku-user-${code.toLowerCase()}@example.c
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const body = await req.json().catch(() => ({}));
+
+    if (body.action === "issue") {
+      const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+      const { data: auth } = await admin.auth.getUser(token);
+      if (!auth.user) return json({ error: "ログインが必要です" }, 401);
+
+      const code = newCode();
+      const { error } = await admin.auth.admin.updateUserById(auth.user.id, {
+        email: codeToEmail(code),
+        password: code,
+        email_confirm: true,
+      });
+      if (error) throw error;
+      return json({ code });
+    }
+
     const expected = Deno.env.get("INVITE_CODE");
     if (!expected) return json({ error: "招待コードがサーバーに設定されていません" }, 500);
 
-    const { invite_code } = await req.json().catch(() => ({}));
     const normalize = (s: string) => s.toUpperCase().replace(/[\s-]/g, "");
-    if (typeof invite_code !== "string" || normalize(invite_code) !== normalize(expected)) {
+    if (typeof body.invite_code !== "string" || normalize(body.invite_code) !== normalize(expected)) {
       return json({ error: "招待コードが違います" }, 403);
     }
 
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: list, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (listError) throw listError;
     if (list.users.length >= MAX_USERS) {

@@ -4,7 +4,6 @@
 // ※ ログイン前に呼ばれるので「Verify JWT」はオフにする（issue のログイン確認はこのコードの中で行う）
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const MAX_USERS = Number(Deno.env.get("MAX_USERS") ?? "5"); // 作れるアカウント数の上限（費用の上限）
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 見間違えやすい 0/O・1/I は使わない
 
 const corsHeaders = {
@@ -52,12 +51,6 @@ Deno.serve(async (req) => {
     const normalize = (s: string) => s.toUpperCase().replace(/[\s-]/g, "");
     if (typeof body.invite_code !== "string" || normalize(body.invite_code) !== normalize(expected)) {
       return json({ error: "招待コードが違います" }, 403);
-    }
-
-    const { data: list, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (listError) throw listError;
-    if (list.users.length >= MAX_USERS) {
-      return json({ error: "利用できる人数の上限に達しています。引き継ぎコードをお持ちならそちらを使ってください" }, 403);
     }
 
     const code = newCode();

@@ -38,7 +38,6 @@ public/push-sw.js            プッシュ通知を受け取る処理
 |---|---|
 | `ANTHROPIC_API_KEY` | Anthropic の API キー（console.anthropic.com で発行。Limits で月の上限も設定） |
 | `INVITE_CODE` | 招待コード（自分で決める。例：`FUKU-7Q2X-MORNING`） |
-| `MAX_USERS` | 作れるアカウント数の上限（省略時 5） |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | プッシュ通知の鍵（`npx web-push generate-vapid-keys` で作る。公開鍵は `src/lib/push.ts` にも書く） |
 | `CRON_SECRET` | 毎朝の通知用の合言葉（ランダムな文字列） |
 

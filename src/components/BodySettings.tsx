@@ -44,20 +44,18 @@ export default function BodySettings() {
         <div className="scale-label">写真風イメージの人物</div>
         <div className="chips wrap">
           {PRESENTATIONS.map((p) => (
-            <button key={p.value} className={body.presentation === p.value ? 'active' : ''} onClick={() => update({ presentation: p.value })}>
+            <button key={p.value} className={body.presentation === p.value ? 'active' : ''} onClick={() => update({ presentation: body.presentation === p.value ? 'unset' : p.value })}>
               {p.label}
             </button>
           ))}
         </div>
-        {body.presentation !== 'faceless' && (
-          <div className="chips wrap">
-            {AGES.map((a) => (
-              <button key={a} className={body.age === a ? 'active' : ''} onClick={() => update({ age: a })}>
-                {a}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="chips wrap">
+          {AGES.map((a) => (
+            <button key={a} className={body.age === a ? 'active' : ''} onClick={() => update({ age: a })}>
+              {a}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -1,10 +1,10 @@
 /** 写真風イメージ用の身長・体型・人物。この端末だけに保存する（配色と同じ） */
 export type BodyType = 'slim' | 'regular' | 'curvy' | 'sturdy'
-export type Presentation = 'faceless' | 'woman' | 'man'
+/** unset は性別を決めずに作る（女性・男性のどちらも選んでいない） */
+export type Presentation = 'unset' | 'woman' | 'man'
 export type Body = { height: number; type: BodyType; presentation: Presentation; age: string; saved: boolean }
 
 export const PRESENTATIONS: { value: Presentation; label: string }[] = [
-  { value: 'faceless', label: '顔を写さない' },
   { value: 'woman', label: '女性' },
   { value: 'man', label: '男性' },
 ]
@@ -28,7 +28,7 @@ export function loadBody(): Body {
       return {
         height: clampHeight(raw.height),
         type: raw.type,
-        presentation: PRESENTATIONS.some((p) => p.value === raw.presentation) ? raw.presentation : 'faceless',
+        presentation: PRESENTATIONS.some((p) => p.value === raw.presentation) ? raw.presentation : 'unset',
         age: AGES.includes(raw.age) ? raw.age : '30代',
         saved: true,
       }
@@ -36,7 +36,7 @@ export function loadBody(): Body {
   } catch {
     // 読めなければ初期値
   }
-  return { height: 160, type: 'regular', presentation: 'faceless', age: '30代', saved: false }
+  return { height: 160, type: 'regular', presentation: 'unset', age: '30代', saved: false }
 }
 
 export function saveBody(body: Omit<Body, 'saved'>) {

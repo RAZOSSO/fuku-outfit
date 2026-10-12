@@ -32,7 +32,7 @@ class HttpError extends Error {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-type Person = { presentation: "woman" | "man" | "faceless"; age: string; height: number; body: string };
+type Person = { presentation: "woman" | "man" | "person"; age: string; height: number; body: string };
 type Item = { id: string; name: string; category: string; color: string; material: string; notes: string };
 
 const SYSTEM = `You write prompts for FLUX.2, a photorealistic image model, to show one outfit worn by one person.
@@ -53,11 +53,8 @@ Do not describe the person's appearance yourself. Translate the Japanese garment
 
 /** refs は参考画像の順の服 id。ownPhoto のときは image 0 が本人の写真で、服は image 1 から */
 async function writePrompt(items: Item[], person: Person, refs: string[], ownPhoto: boolean): Promise<string> {
-  const who = ownPhoto
-    ? "the person from image 0"
-    : person.presentation === "faceless"
-    ? "a person whose face is not shown: frame the photo from the chin down to the shoes"
-    : `a ${person.age} ${person.presentation}`;
+  // presentation は woman / man / person（性別を決めない）。年代は "in their 30s" の形
+  const who = ownPhoto ? "the person from image 0" : `a ${person.presentation || "person"} ${person.age}`;
   const offset = ownPhoto ? 1 : 0;
   const lines = items.map((i) => {
     const ref = refs.indexOf(i.id);

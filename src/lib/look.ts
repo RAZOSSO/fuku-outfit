@@ -84,7 +84,7 @@ export async function generateLook(
   form.append(
     'person',
     JSON.stringify({
-      presentation: body.presentation,
+      presentation: body.presentation === 'unset' ? 'person' : body.presentation,
       age: AGE_EN[body.age] ?? 'in their 30s',
       height: body.height,
       body: BUILD_EN[body.type],

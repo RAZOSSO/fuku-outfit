@@ -53,7 +53,7 @@ const SYSTEM = `あなたはファッション誌でも活躍するパーソナ�
 5. 足元と小物: 靴は全体のテイストとフォーマル度に合わせ、小物と色をつなげると洗練されて見える。
 6. 本人の好み・予定のメモを最優先する。曜日も考える（平日は通勤・仕事、休日はリラックスした装いになりやすい）。
 7. 「過去の評価」で 👍 の傾向は伸ばし、👎 の理由（暑い・寒い・色など）は繰り返さない。暑がり・寒がりの傾向は気温の目安を補正する。
-8. 最近着た服、特にトップスやワンピースは数日あける。「今日すでに出した案」とは、色かテイストがはっきり違う方向にする。
+8. 同じ服を続けない。手持ちの服の recent_wear（いつ着た・着る予定か）を見て、トップスとワンピースは前後2日以内に着た服を、ボトムスは前後1日以内に着た服を避ける。靴・アウター・小物は続いてもよい。天気に合う代わりがどうしてもないときだけ例外とし、comment でそう伝える。「今日すでに出した案」とは、色かテイストがはっきり違う方向にする。
 
 決める前に、色・シルエット・天気・構成のルールを満たしているかを自分で確認してください。
 
@@ -86,7 +86,12 @@ type Profile = { place_name: string; latitude: number; longitude: number; style_
 type Item = {
   id: string; name: string; category: string; color: string; material: string;
   warmth: number; rain_ok: boolean; formality: number; notes: string;
+  recent_wear?: string; // 「2日前に着た」「明日着る予定」など。前後14日に着ていなければなし
 };
+
+/** 続けて着ないようにあける日数（前後この日数以内に着た服は避ける）。ここにない種類は続いてもよい */
+const REST_DAYS: Record<string, number> = { tops: 2, onepiece: 2, bottoms: 1 };
+const CATEGORY_LABELS: Record<string, string> = { tops: "トップス", onepiece: "ワンピース", bottoms: "ボトムス" };
 type Weather = Awaited<ReturnType<typeof fetchWeather>>;
 type Outfit = { id: string; date: string; item_ids: string[]; comment: string; tips: string; weather: Weather };
 
@@ -181,15 +186,32 @@ async function generateOutfit(supabase: SupabaseClient, userId: string, date: st
   const profile: Profile = profileRes.data ?? { place_name: "東京", latitude: 35.6895, longitude: 139.6917, style_notes: "" };
   const allItems = (itemsRes.data ?? []) as (Item & { unavailable?: boolean })[];
   if (allItems.length === 0) throw new HttpError(400, "先にクローゼットに服を登録してください");
-  const items: Item[] = allItems.filter((i) => !i.unavailable).map((i) => ({
-    id: i.id, name: i.name, category: i.category, color: i.color, material: i.material,
-    warmth: i.warmth, rain_ok: i.rain_ok, formality: i.formality, notes: i.notes,
-  }));
+  const recent = recentRes.data ?? [];
+  // 服ごとに、提案する日にいちばん近い「着た日」（前の晩に決めた明日の服も含む）
+  const wornGap = new Map<string, number>(); // 日数の差。マイナスは過去、プラスは先の予定
+  for (const o of recent) {
+    if (!o.worn || o.date === date) continue;
+    const gap = Math.round((Date.parse(o.date) - Date.parse(date)) / 86400_000);
+    for (const id of o.item_ids as string[]) {
+      const prev = wornGap.get(id);
+      if (prev === undefined || Math.abs(gap) < Math.abs(prev)) wornGap.set(id, gap);
+    }
+  }
+  const wearText = (gap: number) =>
+    gap === -1 ? "前日に着た" : gap < 0 ? `${-gap}日前に着た` : gap === 1 ? "翌日に着る予定" : `${gap}日後に着る予定`;
+
+  const items: Item[] = allItems.filter((i) => !i.unavailable).map((i) => {
+    const gap = wornGap.get(i.id);
+    return {
+      id: i.id, name: i.name, category: i.category, color: i.color, material: i.material,
+      warmth: i.warmth, rain_ok: i.rain_ok, formality: i.formality, notes: i.notes,
+      ...(gap !== undefined && { recent_wear: wearText(gap) }),
+    };
+  });
   if (items.length === 0) throw new HttpError(400, "着られる服がありません（すべて洗濯中になっています）");
 
   const names = new Map(allItems.map((i) => [i.id, i.name])); // 履歴の表示には洗濯中の服も使う
   const describe = (ids: string[]) => ids.map((id) => names.get(id) ?? "（削除済み）").join("、");
-  const recent = recentRes.data ?? [];
   const wornLines = recent.filter((o) => o.worn && o.date !== date).map((o) => `- ${o.date}: ${describe(o.item_ids)}`);
   const todayLines = recent.filter((o) => o.date === date).map((o) => `- ${describe(o.item_ids)}`);
   const ratedLines = (ratedRes.data ?? []).map((o) => {
@@ -223,7 +245,7 @@ ${todayLines.join("\n") || "（なし）"}`;
   // 組み合わせの決まりを破っていたら、理由を伝えて1回だけ組み直してもらう
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: prompt }];
   let answer = await askClaude(messages);
-  const problems = checkOutfit(answer.item_ids, items);
+  const problems = checkOutfit(answer.item_ids, items, wornGap);
   if (problems.length > 0) {
     console.warn("outfit retry", problems);
     messages.push(
@@ -245,7 +267,7 @@ ${todayLines.join("\n") || "（なし）"}`;
 }
 
 /** 構成の決まり（システムプロンプトの「必ず守ること」）を破っていないか確かめ、問題を文で返す */
-function checkOutfit(ids: string[], items: Item[]): string[] {
+function checkOutfit(ids: string[], items: Item[], wornGap: Map<string, number>): string[] {
   const byId = new Map(items.map((i) => [i.id, i]));
   const chosen = [...new Set(ids)].map((id) => byId.get(id)).filter((i): i is Item => !!i);
   const count = (c: string) => chosen.filter((i) => i.category === c).length;
@@ -261,6 +283,17 @@ function checkOutfit(ids: string[], items: Item[]): string[] {
     if (count(c) > 1) problems.push(`${label}が${count(c)}点あります（1点まで）`);
   }
   if (count("tops") > 2) problems.push(`トップスが${count("tops")}点あります（重ね着でも2点まで）`);
+
+  // 続けて着ることになる服。同じ種類にあけて着られる代わりがあるときだけ指摘する
+  const tooSoon = (i: Item) => {
+    const gap = wornGap.get(i.id);
+    return gap !== undefined && Math.abs(gap) <= (REST_DAYS[i.category] ?? -1);
+  };
+  for (const i of chosen.filter(tooSoon)) {
+    if (items.some((other) => other.category === i.category && !tooSoon(other) && !ids.includes(other.id))) {
+      problems.push(`「${i.name}」は${i.recent_wear}ので続けて着ることになります。ほかの${CATEGORY_LABELS[i.category]}にしてください（天気に合う代わりがどうしてもなければ、そのままでかまいません）`);
+    }
+  }
   return problems;
 }
 
